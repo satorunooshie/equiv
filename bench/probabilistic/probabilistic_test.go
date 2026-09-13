@@ -19,6 +19,7 @@ func BenchmarkBloom(b *testing.B) {
 		f.Add(i)
 	}
 	b.ReportAllocs()
+	b.ReportMetric(float64(f.BitLen())/65536, "bits/key")
 	b.ResetTimer()
 	for i := 0; b.Loop(); i++ {
 		filterSink = f.Contains(i & 65535)
