@@ -121,6 +121,104 @@ func BenchmarkCollisionGet(b *testing.B) {
 	}
 }
 
+func BenchmarkIntOperations(b *testing.B) {
+	for _, operation := range []string{"GetHit", "GetMiss", "SetNew", "Replace", "Delete", "Range"} {
+		b.Run("Builtin/"+operation, func(b *testing.B) { benchmarkBuiltinOperation(b, operation) })
+		b.Run("Gomap/"+operation, func(b *testing.B) { benchmarkGomapOperation(b, operation) })
+		b.Run("Equiv/"+operation, func(b *testing.B) { benchmarkEquivOperation(b, operation) })
+	}
+}
+
+func benchmarkBuiltinOperation(b *testing.B, operation string) {
+	keys := ints(1024)
+	m := make(map[int]int, len(keys)*2)
+	for _, key := range keys {
+		m[key] = key
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; b.Loop(); i++ {
+		key := i % len(keys)
+		switch operation {
+		case "GetHit":
+			sinkInt, _ = m[key]
+		case "GetMiss":
+			sinkInt, _ = m[key+len(keys)]
+		case "SetNew":
+			m[key+len(keys)] = i
+		case "Replace":
+			m[key] = i
+		case "Delete":
+			delete(m, key)
+			m[key] = key
+		case "Range":
+			for _, value := range m {
+				sinkInt += value
+			}
+		}
+	}
+}
+
+func benchmarkGomapOperation(b *testing.B, operation string) {
+	keys := ints(1024)
+	m := gomap.NewHint[int, int](len(keys)*2, intEqual, intHash)
+	for _, key := range keys {
+		m.Set(key, key)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; b.Loop(); i++ {
+		key := i % len(keys)
+		switch operation {
+		case "GetHit":
+			sinkInt, _ = m.Get(key)
+		case "GetMiss":
+			sinkInt, _ = m.Get(key + len(keys))
+		case "SetNew":
+			m.Set(key+len(keys), i)
+		case "Replace":
+			m.Set(key, i)
+		case "Delete":
+			m.Delete(key)
+			m.Set(key, key)
+		case "Range":
+			for _, value := range m.All() {
+				sinkInt += value
+			}
+		}
+	}
+}
+
+func benchmarkEquivOperation(b *testing.B, operation string) {
+	keys := ints(1024)
+	m := equiv.NewMap[int, int](maphash.ComparableHasher[int]{})
+	for _, key := range keys {
+		m.Set(key, key)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; b.Loop(); i++ {
+		key := i % len(keys)
+		switch operation {
+		case "GetHit":
+			sinkInt, _ = m.Get(key)
+		case "GetMiss":
+			sinkInt, _ = m.Get(key + len(keys))
+		case "SetNew":
+			m.Set(key+len(keys), i)
+		case "Replace":
+			m.Set(key, i)
+		case "Delete":
+			m.Delete(key)
+			m.Set(key, key)
+		case "Range":
+			for value := range m.Values() {
+				sinkInt += value
+			}
+		}
+	}
+}
+
 type constantHasher struct{}
 
 func (constantHasher) Hash(h *maphash.Hash, _ int) { h.WriteByte(1) }
