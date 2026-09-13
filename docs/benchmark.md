@@ -10,6 +10,24 @@ the benchmark tests themselves remain the source of truth for raw measurements.
 make verify
 ```
 
+The isolated `bench/` module additionally compares built-in `map`,
+`aristanetworks/gomap`, and `equiv.Map` for comparable and semantic-key
+workloads, and contains concurrent, cache, and probabilistic baselines. Its
+competitor versions are pinned in `bench/go.mod` and are not production
+dependencies.
+
+For a statistically meaningful comparison, collect multiple samples and use
+`benchstat` (or an equivalent method). For example:
+
+```text
+cd bench
+go test -run '^$' -bench . -benchmem -count 10 ./... > run.txt
+```
+
+Do not publish a performance claim from a single run, a cherry-picked minimum,
+or a difference within measurement noise. Record the Go version, OS, GOARCH,
+CPU, command, dependency versions, sample count, and comparison method.
+
 The command runs the unit suite, race detector, vet, the deterministic fuzz
 smoke test, and all package benchmarks with `-benchtime=1x`. Exact-table
 benchmarks cover 8, 64, 1K, 64K, and 1M entries. Cache benchmarks cover all nine
