@@ -53,7 +53,8 @@ func (m *Map[K, V]) GetOrCompute(k K, f func() V) (V, bool) {
 	if v, ok := m.Get(k); ok {
 		return v, true
 	}
-	return m.GetOrSet(k, f())
+	v := f()
+	return m.GetOrSet(k, v)
 }
 
 // Set inserts or replaces a value without changing the order of an existing key.

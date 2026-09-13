@@ -19,13 +19,9 @@ func New[K, V any](h maphash.Hasher[K]) *Map[K, V] { return &Map[K, V]{equiv.New
 
 // Add appends v to the values associated with k.
 func (m *Map[K, V]) Add(k K, v V) {
-	x, ok := m.m.Get(k)
+	x, _ := m.m.Get(k)
 	x = append(x, v)
-	if ok {
-		m.m.Set(k, x)
-	} else {
-		m.m.Set(k, x)
-	}
+	m.m.Set(k, x)
 }
 
 // Values returns the values associated with k in insertion order.

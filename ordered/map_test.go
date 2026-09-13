@@ -161,3 +161,15 @@ func TestOrderedMissingKeyOperationsAreNoOps(t *testing.T) {
 		t.Fatal("missing set element operation reported success")
 	}
 }
+
+func TestOrderedGetOrComputeDoesNotCallOnHit(t *testing.T) {
+	m := NewMap[string, int](maphash.ComparableHasher[string]{})
+	m.Set("key", 1)
+	calls := 0
+	if value, hit := m.GetOrCompute("key", func() int {
+		calls++
+		return 2
+	}); !hit || value != 1 || calls != 0 {
+		t.Fatalf("GetOrCompute=(%d,%v), calls=%d", value, hit, calls)
+	}
+}
