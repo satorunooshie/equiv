@@ -41,7 +41,7 @@ OS:      darwin
 Arch:    arm64
 CPU:     Apple M4 Max
 Go:      1.27.1
-Commit:  ccb9e9a
+Commit:  0faea10
 ```
 
 The release suite completed successfully. `internal/table` also reports probe,
