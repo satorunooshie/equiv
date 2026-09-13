@@ -4,6 +4,7 @@ import (
 	"hash/maphash"
 	"testing"
 
+	"github.com/hashicorp/golang-lru/v2"
 	"github.com/satorunooshie/equiv/cache"
 )
 
@@ -28,6 +29,51 @@ func BenchmarkCacheWorkloads(b *testing.B) {
 					continue
 				}
 				cacheSink, _ = c.Get(key)
+			}
+		})
+	}
+}
+
+func BenchmarkSpecializedCacheBaseline(b *testing.B) {
+	for _, name := range []string{"EquivLRU", "HashicorpLRU"} {
+		b.Run(name, func(b *testing.B) {
+			if name == "EquivLRU" {
+				c, err := cache.New[int, int](maphash.ComparableHasher[int]{}, cache.Config[int, int]{Policy: cache.LRU, MaxEntries: 1024})
+				if err != nil {
+					b.Fatal(err)
+				}
+				for i := range 1024 {
+					c.Set(i, i)
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; b.Loop(); i++ {
+					key := (i*17 + i/31) & 2047
+					if i%20 == 0 {
+						c.Set(key, i)
+					} else if value, ok := c.Get(key); ok {
+						cacheSink = value
+					}
+				}
+				return
+			}
+
+			c, err := lru.New[int, int](1024)
+			if err != nil {
+				b.Fatal(err)
+			}
+			for i := range 1024 {
+				c.Add(i, i)
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; b.Loop(); i++ {
+				key := (i*17 + i/31) & 2047
+				if i%20 == 0 {
+					c.Add(key, i)
+				} else if value, ok := c.Get(key); ok {
+					cacheSink = value
+				}
 			}
 		})
 	}

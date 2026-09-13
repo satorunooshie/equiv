@@ -13,7 +13,7 @@ import (
 var sinkInt int
 
 func BenchmarkIntGet(b *testing.B) {
-	for _, size := range []int{8, 64, 1024, 65536} {
+	for _, size := range []int{8, 64, 1024, 65536, 1 << 20} {
 		b.Run("Builtin/"+itoa(size), func(b *testing.B) {
 			keys := ints(size)
 			m := make(map[int]int, size)
@@ -54,7 +54,7 @@ func BenchmarkIntGet(b *testing.B) {
 }
 
 func BenchmarkSemanticGet(b *testing.B) {
-	for _, size := range []int{8, 64, 1024, 65536} {
+	for _, size := range []int{8, 64, 1024, 65536, 1 << 20} {
 		b.Run("RawCanonical/"+itoa(size), func(b *testing.B) {
 			keys := stringsFor(size)
 			m := make(map[string]int, size)

@@ -12,6 +12,11 @@ GOTOOLCHAIN=local go test -run '^$' -bench . -benchmem -count 10 ./...
 
 Use `benchstat` (or an equivalent statistical comparison) for before/after
 claims. A single run or a cherry-picked minimum is not evidence of a public
-performance difference. Benchmarks separate raw comparable-key operation cost
-from semantic workloads that include per-operation conversion or precomputed
-canonical keys.
+performance difference. Benchmarks compare `equiv` with built-in `map`,
+`gomap`, and a representative specialized LRU cache where applicable. They
+separate raw comparable-key operation cost from semantic workloads that include
+per-operation conversion or precomputed canonical keys.
+
+The concurrent package uses `RunParallel` specifically for its parallel
+workloads; the other new benchmarks use `B.Loop`. Probabilistic benchmarks
+cover Bloom, Cuckoo, and XOR filters.
