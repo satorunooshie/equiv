@@ -6,6 +6,7 @@ import (
 	"hash/maphash"
 	"iter"
 	"math/rand"
+	"slices"
 	"testing"
 )
 
@@ -64,7 +65,7 @@ func checkHasher[T any](h maphash.Hasher[T], values []T) []string {
 		// the same result for a value after each history. This is a
 		// diagnostic check over the supplied corpus, not a proof for all
 		// possible call histories.
-		sequences := [][]T{values, reverse(values), rotate(values)}
+		sequences := [][]T{values, reversed(values), rotated(values)}
 		for _, sequence := range sequences {
 			for i, x := range values {
 				if !equality[i*len(values)+i] {
@@ -82,22 +83,17 @@ func checkHasher[T any](h maphash.Hasher[T], values []T) []string {
 	return issues
 }
 
-func reverse[T any](values []T) []T {
-	result := make([]T, len(values))
-	for i, value := range values {
-		result[len(values)-1-i] = value
-	}
+func reversed[T any](values []T) []T {
+	result := slices.Clone(values)
+	slices.Reverse(result)
 	return result
 }
 
-func rotate[T any](values []T) []T {
+func rotated[T any](values []T) []T {
 	if len(values) < 2 {
-		return append([]T(nil), values...)
+		return slices.Clone(values)
 	}
-	result := make([]T, len(values))
-	copy(result, values[1:])
-	result[len(values)-1] = values[0]
-	return result
+	return slices.Concat(values[1:], values[:1])
 }
 
 func hashValue[T any](h maphash.Hasher[T], seed maphash.Seed, value T) uint64 {
