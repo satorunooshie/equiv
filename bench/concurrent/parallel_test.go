@@ -23,6 +23,7 @@ func BenchmarkParallelMapWorkloads(b *testing.B) {
 		{name: "HotKeyContention", writeEvery: 20, keyModulo: 1},
 	} {
 		b.Run("Equiv/"+workload.name, func(b *testing.B) {
+			accesses := accessSequence(4096, workload.keyModulo, 0x434f4e43)
 			m, err := concurrent.NewMap[int, int](maphash.ComparableHasher[int]{}, concurrent.WithShards(64))
 			if err != nil {
 				b.Fatal(err)
@@ -35,7 +36,7 @@ func BenchmarkParallelMapWorkloads(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
 				i := 0
 				for pb.Next() {
-					key := i % workload.keyModulo
+					key := accesses[i%len(accesses)]
 					if workload.writeEvery > 0 && i%workload.writeEvery == 0 {
 						m.Set(key, i)
 					} else {
@@ -46,6 +47,7 @@ func BenchmarkParallelMapWorkloads(b *testing.B) {
 			})
 		})
 		b.Run("XSync/"+workload.name, func(b *testing.B) {
+			accesses := accessSequence(4096, workload.keyModulo, 0x434f4e43)
 			m := xsync.NewMap[int, int]()
 			for i := range 1024 {
 				m.Store(i, i)
@@ -55,7 +57,7 @@ func BenchmarkParallelMapWorkloads(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
 				i := 0
 				for pb.Next() {
-					key := i % workload.keyModulo
+					key := accesses[i%len(accesses)]
 					if workload.writeEvery > 0 && i%workload.writeEvery == 0 {
 						m.Store(key, i)
 					} else {

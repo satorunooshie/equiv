@@ -2,6 +2,7 @@ package map_test
 
 import (
 	"hash/maphash"
+	"math/rand"
 	"strings"
 	"testing"
 
@@ -16,38 +17,41 @@ func BenchmarkIntGet(b *testing.B) {
 	for _, size := range []int{8, 64, 1024, 65536, 1 << 20} {
 		b.Run("Builtin/"+itoa(size), func(b *testing.B) {
 			keys := ints(size)
+			accesses := accessSequence(4096, size, 0x4d415000+int64(size))
 			m := make(map[int]int, size)
 			for _, key := range keys {
 				m[key] = key
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for b.Loop() {
-				sinkInt, _ = m[keys[0]]
+			for i := 0; b.Loop(); i++ {
+				sinkInt, _ = m[keys[accesses[i%len(accesses)]]]
 			}
 		})
 		b.Run("Gomap/"+itoa(size), func(b *testing.B) {
 			keys := ints(size)
+			accesses := accessSequence(4096, size, 0x4d415000+int64(size))
 			m := gomap.NewHint[int, int](size, intEqual, intHash)
 			for _, key := range keys {
 				m.Set(key, key)
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for b.Loop() {
-				sinkInt, _ = m.Get(keys[0])
+			for i := 0; b.Loop(); i++ {
+				sinkInt, _ = m.Get(keys[accesses[i%len(accesses)]])
 			}
 		})
 		b.Run("Equiv/"+itoa(size), func(b *testing.B) {
 			keys := ints(size)
+			accesses := accessSequence(4096, size, 0x4d415000+int64(size))
 			m := equiv.NewMap[int, int](maphash.ComparableHasher[int]{})
 			for _, key := range keys {
 				m.Set(key, key)
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for b.Loop() {
-				sinkInt, _ = m.Get(keys[0])
+			for i := 0; b.Loop(); i++ {
+				sinkInt, _ = m.Get(keys[accesses[i%len(accesses)]])
 			}
 		})
 	}
@@ -57,43 +61,50 @@ func BenchmarkSemanticGet(b *testing.B) {
 	for _, size := range []int{8, 64, 1024, 65536, 1 << 20} {
 		b.Run("RawCanonical/"+itoa(size), func(b *testing.B) {
 			keys := stringsFor(size)
+			accesses := accessSequence(4096, size, 0x53454d000+int64(size))
 			m := make(map[string]int, size)
 			for i, key := range keys {
 				m[key] = i
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for b.Loop() {
-				sinkInt, _ = m[keys[0]]
+			for i := 0; b.Loop(); i++ {
+				sinkInt, _ = m[keys[accesses[i%len(accesses)]]]
 			}
 		})
 		b.Run("PerOperationConversion/"+itoa(size), func(b *testing.B) {
 			keys := stringsFor(size)
+			accesses := accessSequence(4096, size, 0x53454d000+int64(size))
 			m := make(map[string]int, size)
 			for i, key := range keys {
 				m[strings.ToLower(key)] = i
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for b.Loop() {
-				sinkInt, _ = m[strings.ToLower(keys[0])]
+			for i := 0; b.Loop(); i++ {
+				sinkInt, _ = m[strings.ToLower(keys[accesses[i%len(accesses)]])]
 			}
 		})
 		b.Run("PrecomputedCanonical/"+itoa(size), func(b *testing.B) {
 			keys := stringsFor(size)
-			canonical := strings.ToLower(keys[0])
-			m := make(map[string]int, size)
+			accesses := accessSequence(4096, size, 0x53454d000+int64(size))
+			canonical := make([]string, size)
 			for i, key := range keys {
-				m[strings.ToLower(key)] = i
+				canonical[i] = strings.ToLower(key)
+			}
+			m := make(map[string]int, size)
+			for i := range keys {
+				m[canonical[i]] = i
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for b.Loop() {
-				sinkInt, _ = m[canonical]
+			for i := 0; b.Loop(); i++ {
+				sinkInt, _ = m[canonical[accesses[i%len(accesses)]]]
 			}
 		})
 		b.Run("SharedHasher/"+itoa(size), func(b *testing.B) {
 			keys := stringsFor(size)
+			accesses := accessSequence(4096, size, 0x53454d000+int64(size))
 			h := hashers.By(strings.ToLower, maphash.ComparableHasher[string]{})
 			m := equiv.NewMap[string, int](h)
 			for i, key := range keys {
@@ -101,8 +112,8 @@ func BenchmarkSemanticGet(b *testing.B) {
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for b.Loop() {
-				sinkInt, _ = m.Get(keys[0])
+			for i := 0; b.Loop(); i++ {
+				sinkInt, _ = m.Get(keys[accesses[i%len(accesses)]])
 			}
 		})
 	}
@@ -110,19 +121,20 @@ func BenchmarkSemanticGet(b *testing.B) {
 
 func BenchmarkCollisionGet(b *testing.B) {
 	keys := ints(1024)
+	accesses := accessSequence(4096, len(keys), 0x434f4c4c)
 	m := equiv.NewMap[int, int](constantHasher{})
 	for _, key := range keys {
 		m.Set(key, key)
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
-	for b.Loop() {
-		sinkInt, _ = m.Get(keys[len(keys)-1])
+	for i := 0; b.Loop(); i++ {
+		sinkInt, _ = m.Get(keys[accesses[i%len(accesses)]])
 	}
 }
 
 func BenchmarkIntOperations(b *testing.B) {
-	for _, operation := range []string{"GetHit", "GetMiss", "SetNew", "Replace", "Delete", "Range"} {
+	for _, operation := range []string{"GetHit", "GetMiss", "SetNew", "Replace", "Delete", "Range", "Clear"} {
 		b.Run("Builtin/"+operation, func(b *testing.B) { benchmarkBuiltinOperation(b, operation) })
 		b.Run("Gomap/"+operation, func(b *testing.B) { benchmarkGomapOperation(b, operation) })
 		b.Run("Equiv/"+operation, func(b *testing.B) { benchmarkEquivOperation(b, operation) })
@@ -131,6 +143,7 @@ func BenchmarkIntOperations(b *testing.B) {
 
 func benchmarkBuiltinOperation(b *testing.B, operation string) {
 	keys := ints(1024)
+	accesses := accessSequence(4096, len(keys), 0x4f505300)
 	m := make(map[int]int, len(keys)*2)
 	for _, key := range keys {
 		m[key] = key
@@ -138,7 +151,7 @@ func benchmarkBuiltinOperation(b *testing.B, operation string) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; b.Loop(); i++ {
-		key := i % len(keys)
+		key := accesses[i%len(accesses)]
 		switch operation {
 		case "GetHit":
 			sinkInt, _ = m[key]
@@ -155,12 +168,15 @@ func benchmarkBuiltinOperation(b *testing.B, operation string) {
 			for _, value := range m {
 				sinkInt += value
 			}
+		case "Clear":
+			clear(m)
 		}
 	}
 }
 
 func benchmarkGomapOperation(b *testing.B, operation string) {
 	keys := ints(1024)
+	accesses := accessSequence(4096, len(keys), 0x4f505300)
 	m := gomap.NewHint[int, int](len(keys)*2, intEqual, intHash)
 	for _, key := range keys {
 		m.Set(key, key)
@@ -168,7 +184,7 @@ func benchmarkGomapOperation(b *testing.B, operation string) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; b.Loop(); i++ {
-		key := i % len(keys)
+		key := accesses[i%len(accesses)]
 		switch operation {
 		case "GetHit":
 			sinkInt, _ = m.Get(key)
@@ -185,12 +201,15 @@ func benchmarkGomapOperation(b *testing.B, operation string) {
 			for _, value := range m.All() {
 				sinkInt += value
 			}
+		case "Clear":
+			m.Clear()
 		}
 	}
 }
 
 func benchmarkEquivOperation(b *testing.B, operation string) {
 	keys := ints(1024)
+	accesses := accessSequence(4096, len(keys), 0x4f505300)
 	m := equiv.NewMap[int, int](maphash.ComparableHasher[int]{})
 	for _, key := range keys {
 		m.Set(key, key)
@@ -198,7 +217,7 @@ func benchmarkEquivOperation(b *testing.B, operation string) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; b.Loop(); i++ {
-		key := i % len(keys)
+		key := accesses[i%len(accesses)]
 		switch operation {
 		case "GetHit":
 			sinkInt, _ = m.Get(key)
@@ -215,6 +234,8 @@ func benchmarkEquivOperation(b *testing.B, operation string) {
 			for value := range m.Values() {
 				sinkInt += value
 			}
+		case "Clear":
+			m.Clear()
 		}
 	}
 }
@@ -242,6 +263,15 @@ func stringsFor(size int) []string {
 		keys[i] = "Key-" + itoa(i)
 	}
 	return keys
+}
+
+func accessSequence(length, size int, seed int64) []int {
+	accesses := make([]int, length)
+	r := rand.New(rand.NewSource(seed))
+	for i := range accesses {
+		accesses[i] = r.Intn(size)
+	}
+	return accesses
 }
 
 func itoa(value int) string {

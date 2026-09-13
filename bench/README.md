@@ -21,8 +21,12 @@ The concurrent package uses `RunParallel` specifically for its parallel
 workloads; the other new benchmarks use `B.Loop`. Probabilistic benchmarks
 cover Bloom, Cuckoo, and XOR filters.
 
-Category results include hit rate and resident-entry metrics for caches, and
-bits/key and measured false-positive rate for probabilistic filters. Throughput
+Category results include hit rate, resident-entry, and approximate resident-heap
+metrics for caches, and bits/key, configured target, and measured false-positive
+rate for probabilistic filters. Bloom counting-filter removal, HLL merge, and
+Cuckoo delete/reinsert are measured where those operations exist. The current
+probabilistic types expose no serialized-state API, so serialization is not a
+benchmarkable contract. Throughput
 does not establish an overall ranking: concurrent snapshot/iteration semantics,
 cache policy and loader behavior, and probabilistic accuracy remain separate
 contract dimensions.
