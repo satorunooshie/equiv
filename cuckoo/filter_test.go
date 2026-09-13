@@ -91,6 +91,41 @@ func TestCuckooRejectsOverflowingCapacity(t *testing.T) {
 	}
 }
 
+func TestCuckooLengthLoadFactorAndDeleteMiss(t *testing.T) {
+	f, err := New[string](maphash.ComparableHasher[string]{}, Config{Capacity: 8, BucketSize: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Len() != 0 || f.LoadFactor() != 0 {
+		t.Fatalf("empty filter len/load=(%d,%v)", f.Len(), f.LoadFactor())
+	}
+	if !f.Insert("a") || f.Len() != 1 || f.LoadFactor() <= 0 {
+		t.Fatalf("insert len/load=(%d,%v)", f.Len(), f.LoadFactor())
+	}
+	if f.Delete("missing") {
+		t.Fatal("delete reported absent value")
+	}
+}
+
+func TestCuckooExercisesRelocationPath(t *testing.T) {
+	f, err := New[int](maphash.ComparableHasher[int]{}, Config{Capacity: 100, BucketSize: 2, MaxKicks: 500})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inserted := 0
+	for i := 0; i < 100 && f.Insert(i); i++ {
+		inserted++
+	}
+	if inserted < 50 {
+		t.Fatalf("filter became unusable too early: inserted=%d", inserted)
+	}
+	for i := 0; i < inserted; i++ {
+		if !f.Contains(i) {
+			t.Fatalf("false negative after relocation at %d", i)
+		}
+	}
+}
+
 func TestCuckooFalsePositiveRateIsBounded(t *testing.T) {
 	f, err := New[int](maphash.ComparableHasher[int]{}, Config{Capacity: 2000, FingerprintBits: 8})
 	if err != nil {
