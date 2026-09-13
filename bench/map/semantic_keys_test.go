@@ -13,90 +13,108 @@ import (
 )
 
 func BenchmarkSemanticKeyShapes(b *testing.B) {
-	b.Run("BytesContentIdentity/Gomap", func(b *testing.B) {
-		keys := byteKeys(1024)
-		accesses := accessSequence(4096, len(keys), 0x53484150)
-		h := hashers.Bytes()
-		m := gomap.NewHint[[]byte, int](len(keys), bytesEqual, gomapHash(h))
-		for i, key := range keys {
-			m.Set(key, i)
-		}
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; b.Loop(); i++ {
-			semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
-		}
-	})
-	b.Run("BytesContentIdentity/Equiv", func(b *testing.B) {
-		keys := byteKeys(1024)
-		accesses := accessSequence(4096, len(keys), 0x53484150)
-		m := equiv.NewMap[[]byte, int](hashers.Bytes())
-		for i, key := range keys {
-			m.Set(key, i)
-		}
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; b.Loop(); i++ {
-			semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
-		}
-	})
+	for _, size := range []int{8, 64, 1024, 65536} {
+		b.Run("BytesContentIdentity/"+itoa(size), func(b *testing.B) {
+			benchmarkBytesGomap(b, size)
+		})
+		b.Run("BytesContentIdentity/Equiv/"+itoa(size), func(b *testing.B) {
+			benchmarkBytesEquiv(b, size)
+		})
+		b.Run("SliceContentIdentity/"+itoa(size), func(b *testing.B) {
+			benchmarkSlicesGomap(b, size)
+		})
+		b.Run("SliceContentIdentity/Equiv/"+itoa(size), func(b *testing.B) {
+			benchmarkSlicesEquiv(b, size)
+		})
+		b.Run("ProjectedStruct/"+itoa(size), func(b *testing.B) {
+			benchmarkProjectedGomap(b, size)
+		})
+		b.Run("ProjectedStruct/Equiv/"+itoa(size), func(b *testing.B) {
+			benchmarkProjectedEquiv(b, size)
+		})
+	}
+}
 
-	b.Run("SliceContentIdentity/Gomap", func(b *testing.B) {
-		keys := stringSliceKeys(1024)
-		accesses := accessSequence(4096, len(keys), 0x53484150)
-		h := hashers.Slice(maphash.ComparableHasher[string]{})
-		m := gomap.NewHint[[]string, int](len(keys), stringSliceEqual, gomapHash(h))
-		for i, key := range keys {
-			m.Set(key, i)
-		}
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; b.Loop(); i++ {
-			semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
-		}
-	})
-	b.Run("SliceContentIdentity/Equiv", func(b *testing.B) {
-		keys := stringSliceKeys(1024)
-		accesses := accessSequence(4096, len(keys), 0x53484150)
-		m := equiv.NewMap[[]string, int](hashers.Slice(maphash.ComparableHasher[string]{}))
-		for i, key := range keys {
-			m.Set(key, i)
-		}
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; b.Loop(); i++ {
-			semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
-		}
-	})
+func benchmarkBytesGomap(b *testing.B, size int) {
+	keys := byteKeys(size)
+	accesses := accessSequence(4096, size, 0x53484150)
+	h := hashers.Bytes()
+	m := gomap.NewHint[[]byte, int](size, bytesEqual, gomapHash(h))
+	for i, key := range keys {
+		m.Set(key, i)
+	}
+	b.ReportAllocs()
+	for i := 0; b.Loop(); i++ {
+		semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
+	}
+}
 
-	b.Run("ProjectedStruct/Gomap", func(b *testing.B) {
-		keys := projectedKeys(1024)
-		accesses := accessSequence(4096, len(keys), 0x53484150)
-		h := hashers.By(func(key projectedKey) string { return strings.ToLower(key.Name) }, maphash.ComparableHasher[string]{})
-		m := gomap.NewHint[projectedKey, int](len(keys), h.Equal, gomapHash(h))
-		for i, key := range keys {
-			m.Set(key, i)
-		}
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; b.Loop(); i++ {
-			semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
-		}
-	})
-	b.Run("ProjectedStruct/Equiv", func(b *testing.B) {
-		keys := projectedKeys(1024)
-		accesses := accessSequence(4096, len(keys), 0x53484150)
-		h := hashers.By(func(key projectedKey) string { return strings.ToLower(key.Name) }, maphash.ComparableHasher[string]{})
-		m := equiv.NewMap[projectedKey, int](h)
-		for i, key := range keys {
-			m.Set(key, i)
-		}
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; b.Loop(); i++ {
-			semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
-		}
-	})
+func benchmarkBytesEquiv(b *testing.B, size int) {
+	keys := byteKeys(size)
+	accesses := accessSequence(4096, size, 0x53484150)
+	m := equiv.NewMap[[]byte, int](hashers.Bytes())
+	for i, key := range keys {
+		m.Set(key, i)
+	}
+	b.ReportAllocs()
+	for i := 0; b.Loop(); i++ {
+		semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
+	}
+}
+
+func benchmarkSlicesGomap(b *testing.B, size int) {
+	keys := stringSliceKeys(size)
+	accesses := accessSequence(4096, size, 0x53484150)
+	h := hashers.Slice(maphash.ComparableHasher[string]{})
+	m := gomap.NewHint[[]string, int](size, stringSliceEqual, gomapHash(h))
+	for i, key := range keys {
+		m.Set(key, i)
+	}
+	b.ReportAllocs()
+	for i := 0; b.Loop(); i++ {
+		semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
+	}
+}
+
+func benchmarkSlicesEquiv(b *testing.B, size int) {
+	keys := stringSliceKeys(size)
+	accesses := accessSequence(4096, size, 0x53484150)
+	m := equiv.NewMap[[]string, int](hashers.Slice(maphash.ComparableHasher[string]{}))
+	for i, key := range keys {
+		m.Set(key, i)
+	}
+	b.ReportAllocs()
+	for i := 0; b.Loop(); i++ {
+		semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
+	}
+}
+
+func benchmarkProjectedGomap(b *testing.B, size int) {
+	keys := projectedKeys(size)
+	accesses := accessSequence(4096, size, 0x53484150)
+	h := hashers.By(func(key projectedKey) string { return strings.ToLower(key.Name) }, maphash.ComparableHasher[string]{})
+	m := gomap.NewHint[projectedKey, int](size, h.Equal, gomapHash(h))
+	for i, key := range keys {
+		m.Set(key, i)
+	}
+	b.ReportAllocs()
+	for i := 0; b.Loop(); i++ {
+		semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
+	}
+}
+
+func benchmarkProjectedEquiv(b *testing.B, size int) {
+	keys := projectedKeys(size)
+	accesses := accessSequence(4096, size, 0x53484150)
+	h := hashers.By(func(key projectedKey) string { return strings.ToLower(key.Name) }, maphash.ComparableHasher[string]{})
+	m := equiv.NewMap[projectedKey, int](h)
+	for i, key := range keys {
+		m.Set(key, i)
+	}
+	b.ReportAllocs()
+	for i := 0; b.Loop(); i++ {
+		semanticSink, _ = m.Get(keys[accesses[i%len(accesses)]])
+	}
 }
 
 var semanticSink int
