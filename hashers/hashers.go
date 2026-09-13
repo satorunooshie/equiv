@@ -23,14 +23,14 @@ type byHasher[T, K any, H maphash.Hasher[K]] struct {
 }
 
 // By constructs a Hasher whose identity is the projected child identity.
-func By[T, K any, H maphash.Hasher[K]](project func(T) K, hasher H) maphash.Hasher[T] {
+func By[T, K any](project func(T) K, hasher maphash.Hasher[K]) maphash.Hasher[T] {
 	if project == nil {
 		panic("hashers: nil projection")
 	}
 	if any(hasher) == nil {
 		panic("hashers: nil Hasher")
 	}
-	return byHasher[T, K, H]{project, hasher}
+	return byHasher[T, K, maphash.Hasher[K]]{project, hasher}
 }
 func (h byHasher[T, K, H]) Hash(out *maphash.Hash, v T) { h.child.Hash(out, h.project(v)) }
 func (h byHasher[T, K, H]) Equal(a, b T) bool           { return h.child.Equal(h.project(a), h.project(b)) }
@@ -40,11 +40,11 @@ func (h byHasher[T, K, H]) Equal(a, b T) bool           { return h.child.Equal(h
 type derefHasher[T any, H maphash.Hasher[T]] struct{ child H }
 
 // Deref constructs a pointer Hasher with a distinct nil representation.
-func Deref[T any, H maphash.Hasher[T]](h H) maphash.Hasher[*T] {
+func Deref[T any](h maphash.Hasher[T]) maphash.Hasher[*T] {
 	if any(h) == nil {
 		panic("hashers: nil Hasher")
 	}
-	return derefHasher[T, H]{h}
+	return derefHasher[T, maphash.Hasher[T]]{h}
 }
 
 func (h derefHasher[T, H]) Hash(out *maphash.Hash, p *T) {
@@ -68,11 +68,11 @@ func (h derefHasher[T, H]) Equal(a, b *T) bool {
 type sliceHasher[T any, H maphash.Hasher[T]] struct{ child H }
 
 // Slice constructs a structural Hasher for ordered slices.
-func Slice[T any, H maphash.Hasher[T]](h H) maphash.Hasher[[]T] {
+func Slice[T any](h maphash.Hasher[T]) maphash.Hasher[[]T] {
 	if any(h) == nil {
 		panic("hashers: nil Hasher")
 	}
-	return sliceHasher[T, H]{h}
+	return sliceHasher[T, maphash.Hasher[T]]{h}
 }
 
 func (h sliceHasher[T, H]) Hash(out *maphash.Hash, v []T) {
@@ -120,11 +120,11 @@ type tuple2Hasher[A, B any, HA maphash.Hasher[A], HB maphash.Hasher[B]] struct {
 }
 
 // Tuple2Of constructs a Hasher for semantic pairs.
-func Tuple2Of[A, B any, HA maphash.Hasher[A], HB maphash.Hasher[B]](a HA, b HB) maphash.Hasher[Tuple2[A, B]] {
+func Tuple2Of[A, B any](a maphash.Hasher[A], b maphash.Hasher[B]) maphash.Hasher[Tuple2[A, B]] {
 	if any(a) == nil || any(b) == nil {
 		panic("hashers: nil Hasher")
 	}
-	return tuple2Hasher[A, B, HA, HB]{a, b}
+	return tuple2Hasher[A, B, maphash.Hasher[A], maphash.Hasher[B]]{a, b}
 }
 
 func (h tuple2Hasher[A, B, HA, HB]) Hash(out *maphash.Hash, v Tuple2[A, B]) {
@@ -144,11 +144,11 @@ type tuple3Hasher[A, B, C any, HA maphash.Hasher[A], HB maphash.Hasher[B], HC ma
 }
 
 // Tuple3Of constructs a Hasher for semantic triples.
-func Tuple3Of[A, B, C any, HA maphash.Hasher[A], HB maphash.Hasher[B], HC maphash.Hasher[C]](a HA, b HB, c HC) maphash.Hasher[Tuple3[A, B, C]] {
+func Tuple3Of[A, B, C any](a maphash.Hasher[A], b maphash.Hasher[B], c maphash.Hasher[C]) maphash.Hasher[Tuple3[A, B, C]] {
 	if any(a) == nil || any(b) == nil || any(c) == nil {
 		panic("hashers: nil Hasher")
 	}
-	return tuple3Hasher[A, B, C, HA, HB, HC]{a, b, c}
+	return tuple3Hasher[A, B, C, maphash.Hasher[A], maphash.Hasher[B], maphash.Hasher[C]]{a, b, c}
 }
 
 func (h tuple3Hasher[A, B, C, HA, HB, HC]) Hash(out *maphash.Hash, v Tuple3[A, B, C]) {
@@ -214,14 +214,14 @@ type StructBuilder[T any] struct{ fields []field[T] }
 func Struct[T any]() *StructBuilder[T] { return &StructBuilder[T]{} }
 
 // Field adds a projected semantic field to the builder.
-func (b *StructBuilder[T]) Field[F any, H maphash.Hasher[F]](get func(T) F, h H) *StructBuilder[T] {
+func (b *StructBuilder[T]) Field[F any](get func(T) F, h maphash.Hasher[F]) *StructBuilder[T] {
 	if get == nil {
 		panic("hashers: nil field projection")
 	}
 	if any(h) == nil {
 		panic("hashers: nil Hasher")
 	}
-	b.fields = append(b.fields, fieldImpl[T, F, H]{get, h})
+	b.fields = append(b.fields, fieldImpl[T, F, maphash.Hasher[F]]{get, h})
 	return b
 }
 
