@@ -87,3 +87,64 @@ func TestConcurrentMutations(t *testing.T) {
 		t.Fatal("negative length")
 	}
 }
+
+func TestMapReadHelpersAndClear(t *testing.T) {
+	m, err := NewMap[string, int](maphash.ComparableHasher[string]{}, WithShards(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, existed := m.GetOrSet("a", 1); existed || v != 1 {
+		t.Fatalf("first GetOrSet=(%d,%v)", v, existed)
+	}
+	if v, existed := m.GetOrSet("a", 2); !existed || v != 1 {
+		t.Fatalf("second GetOrSet=(%d,%v)", v, existed)
+	}
+	if k, v, ok := m.GetEntry("a"); !ok || k != "a" || v != 1 {
+		t.Fatalf("GetEntry=(%q,%d,%v)", k, v, ok)
+	}
+	var values []int
+	for v := range m.Values() {
+		values = append(values, v)
+	}
+	if len(values) != 1 || values[0] != 1 {
+		t.Fatalf("values=%v", values)
+	}
+	m.Clear()
+	if m.Len() != 0 {
+		t.Fatal("clear did not empty map")
+	}
+}
+
+func TestConcurrentSetLifecycle(t *testing.T) {
+	s, err := NewSet[string](maphash.ComparableHasher[string]{}, WithShards(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.Insert("a") || s.Insert("a") || !s.Contains("a") {
+		t.Fatal("set insert/contains failed")
+	}
+	if v, ok := s.Lookup("a"); !ok || v != "a" {
+		t.Fatalf("lookup=(%q,%v)", v, ok)
+	}
+	clone := s.Snapshot()
+	s.Delete("a")
+	if !clone.Contains("a") || s.Contains("a") {
+		t.Fatal("set snapshot or delete failed")
+	}
+	s.Clear()
+	if s.Len() != 0 {
+		t.Fatal("set clear failed")
+	}
+}
+
+func TestInvalidShardOptions(t *testing.T) {
+	h := maphash.ComparableHasher[int]{}
+	for _, n := range []int{0, 3, -2} {
+		if _, err := NewMap[int, int](h, WithShards(n)); err == nil {
+			t.Fatalf("WithShards(%d) was accepted", n)
+		}
+		if _, err := NewSet[int](h, WithShards(n)); err == nil {
+			t.Fatalf("set WithShards(%d) was accepted", n)
+		}
+	}
+}
