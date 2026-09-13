@@ -15,52 +15,55 @@ func BenchmarkMapOperations(b *testing.B) {
 		b.Run(sizeName(size), func(b *testing.B) {
 			b.Run("equiv/hit", func(b *testing.B) {
 				m := filledMap(size)
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				i := 0
+				for b.Loop() {
 					_, _ = m.Get(i % size)
+					i++
 				}
 			})
 			b.Run("equiv/miss", func(b *testing.B) {
 				m := filledMap(size)
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				i := 0
+				for b.Loop() {
 					_, _ = m.Get(size + i%size)
+					i++
 				}
 			})
 			b.Run("equiv/insert", func(b *testing.B) {
 				m := equiv.NewMap[int, int](maphash.ComparableHasher[int]{})
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				i := 0
+				for b.Loop() {
 					m.Set(i, i)
+					i++
 				}
 			})
 			b.Run("equiv/replace", func(b *testing.B) {
 				m := filledMap(size)
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				i := 0
+				for b.Loop() {
 					m.Set(i%size, i)
+					i++
 				}
 			})
 			b.Run("equiv/delete", func(b *testing.B) {
 				m := filledMap(size)
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				i := 0
+				for b.Loop() {
 					k := i % size
 					m.Delete(k)
 					m.Set(k, i)
+					i++
 				}
 			})
 			b.Run("equiv/iterate", func(b *testing.B) {
 				m := filledMap(size)
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				for b.Loop() {
 					for range m.All() {
 					}
 				}
 			})
 			b.Run("equiv/resize", func(b *testing.B) {
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				for b.Loop() {
 					m := equiv.NewMap[int, int](maphash.ComparableHasher[int]{})
 					for k := range size {
 						m.Set(k, k)
@@ -71,7 +74,7 @@ func BenchmarkMapOperations(b *testing.B) {
 				b.StopTimer()
 				m := filledMap(size)
 				b.StartTimer()
-				for i := 0; i < b.N; i++ {
+				for b.Loop() {
 					m.Clear()
 					for k := range size {
 						m.Set(k, k)
@@ -89,9 +92,10 @@ func BenchmarkComparableMapGet(b *testing.B) {
 			for i := range size {
 				m[i] = i
 			}
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			i := 0
+			for b.Loop() {
 				_, _ = m[i%size]
+				i++
 			}
 		})
 	}
@@ -106,9 +110,10 @@ func BenchmarkMapCollisionLookup(b *testing.B) {
 			for i := range size {
 				m.Set(i, i)
 			}
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			i := 0
+			for b.Loop() {
 				_, _ = m.Get(i % size)
+				i++
 			}
 		})
 	}
@@ -121,9 +126,10 @@ func BenchmarkStringEncodedMapGet(b *testing.B) {
 			for i := range size {
 				m[strconv.Itoa(i)] = i
 			}
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			i := 0
+			for b.Loop() {
 				_, _ = m[strconv.Itoa(i%size)]
+				i++
 			}
 		})
 	}
