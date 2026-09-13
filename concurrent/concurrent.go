@@ -164,22 +164,24 @@ func (m *Map[K, V]) Clear() {
 	}
 }
 
-// All snapshots entries and invokes yield without holding internal locks.
+// All snapshots entries at one linearization point and invokes yield without
+// holding internal locks. Mutations may continue while the returned sequence
+// is being consumed.
 func (m *Map[K, V]) All() iter.Seq2[K, V] {
 	return func(y func(K, V) bool) {
-		m.gate.RLock()
+		// The exclusive gate prevents point mutations from changing a shard
+		// after it has been copied. The shard locks protect the local table.
+		m.gate.Lock()
 		all := make([]mapEntry[K, V], 0, int(m.count.Load()))
 		for i := range m.shards {
 			s := &m.shards[i]
 			s.RLock()
-			a := []mapEntry[K, V]{}
 			for k, v := range s.m.All() {
-				a = append(a, mapEntry[K, V]{k, v})
+				all = append(all, mapEntry[K, V]{k, v})
 			}
 			s.RUnlock()
-			all = append(all, a...)
 		}
-		m.gate.RUnlock()
+		m.gate.Unlock()
 		for _, e := range all {
 			if !y(e.k, e.v) {
 				return
@@ -215,8 +217,10 @@ func (m *Map[K, V]) Values() iter.Seq[V] {
 
 // Snapshot returns an independent local map containing a linearizable view.
 func (m *Map[K, V]) Snapshot() *equiv.Map[K, V] {
-	m.gate.RLock()
-	defer m.gate.RUnlock()
+	// Hold the exclusive gate for the entire copy so the result corresponds
+	// to one global point in the mutation history.
+	m.gate.Lock()
+	defer m.gate.Unlock()
 	n := equiv.NewMap[K, V](m.h)
 	for i := range m.shards {
 		s := &m.shards[i]
@@ -241,13 +245,29 @@ func NewSet[E any](h maphash.Hasher[E], opts ...Option) (*Set[E], error) {
 	}
 	return &Set[E]{m}, nil
 }
-func (s *Set[E]) Insert(e E) bool      { _, ok := s.m.Set(e, struct{}{}); return !ok }
+
+// Insert adds e and reports whether it was new.
+func (s *Set[E]) Insert(e E) bool { _, ok := s.m.Set(e, struct{}{}); return !ok }
+
+// Lookup returns the stored canonical representation of e.
 func (s *Set[E]) Lookup(e E) (E, bool) { k, _, ok := s.m.GetEntry(e); return k, ok }
-func (s *Set[E]) Contains(e E) bool    { _, ok := s.m.Get(e); return ok }
-func (s *Set[E]) Delete(e E) bool      { return s.m.Delete(e) }
-func (s *Set[E]) Len() int             { return s.m.Len() }
-func (s *Set[E]) Clear()               { s.m.Clear() }
-func (s *Set[E]) All() iter.Seq[E]     { return s.m.Keys() }
+
+// Contains reports whether e is present.
+func (s *Set[E]) Contains(e E) bool { _, ok := s.m.Get(e); return ok }
+
+// Delete removes e if present.
+func (s *Set[E]) Delete(e E) bool { return s.m.Delete(e) }
+
+// Len returns the number of distinct elements.
+func (s *Set[E]) Len() int { return s.m.Len() }
+
+// Clear removes all elements.
+func (s *Set[E]) Clear() { s.m.Clear() }
+
+// All returns a linearizable snapshot of the elements.
+func (s *Set[E]) All() iter.Seq[E] { return s.m.Keys() }
+
+// Snapshot returns an independent local set containing a linearizable view.
 func (s *Set[E]) Snapshot() *equiv.Set[E] {
 	n := equiv.NewSet[E](s.m.h)
 	for e := range s.All() {

@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/satorunooshie/equiv"
 )
@@ -41,7 +42,7 @@ func TestConcurrentIteratorMayMutateContainer(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		m.Set(i, i)
 	}
 	seen := 0
@@ -65,14 +66,69 @@ func TestConcurrentSnapshotIsIndependent(t *testing.T) {
 	var _ *equiv.Map[int, int] = s
 }
 
+type snapshotBlockingHasher struct {
+	block     atomic.Bool
+	started   chan struct{}
+	release   chan struct{}
+	startOnce sync.Once
+	blockOnce sync.Once
+}
+
+func (h *snapshotBlockingHasher) Hash(out *maphash.Hash, v int) {
+	if h.block.Load() {
+		h.blockOnce.Do(func() {
+			h.startOnce.Do(func() { close(h.started) })
+			<-h.release
+		})
+	}
+	var b [8]byte
+	for i := range b {
+		b[i] = byte(uint64(v) >> uint(8*i))
+	}
+	out.Write(b[:])
+}
+
+func (*snapshotBlockingHasher) Equal(a, b int) bool { return a == b }
+
+func TestSnapshotExcludesConcurrentWriters(t *testing.T) {
+	h := &snapshotBlockingHasher{started: make(chan struct{}), release: make(chan struct{})}
+	m, err := NewMap[int, int](h, WithShards(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Set(1, 1)
+	h.block.Store(true)
+
+	done := make(chan struct{})
+	go func() {
+		m.Snapshot()
+		close(done)
+	}()
+	<-h.started
+
+	writerDone := make(chan struct{})
+	go func() {
+		m.Set(2, 2)
+		close(writerDone)
+	}()
+	select {
+	case <-writerDone:
+		t.Fatal("writer was not excluded during snapshot")
+	case <-time.After(10 * time.Millisecond):
+	}
+	close(h.release)
+	<-done
+	<-writerDone
+}
+
 func TestConcurrentMutations(t *testing.T) {
 	m, _ := NewMap[int, int](maphash.ComparableHasher[int]{}, WithShards(8))
 	var wg sync.WaitGroup
-	for g := 0; g < 8; g++ {
+	for g := range 8 {
 		wg.Add(1)
 		go func(g int) {
 			defer wg.Done()
-			for i := 0; i < 1000; i++ {
+			for i := range 1000 {
 				k := (i + g) % 64
 				m.Set(k, i)
 				m.Get(k)
