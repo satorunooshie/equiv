@@ -49,12 +49,12 @@ func TestFingerprintFilterHasNoFalseNegative(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		if !f.Insert(i) {
 			t.Fatalf("insert %d", i)
 		}
 	}
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		if !f.Contains(i) {
 			t.Fatalf("false negative %d", i)
 		}
@@ -66,7 +66,7 @@ func TestFailedInsertPreservesMembership(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if !f.Insert(i) {
 			t.Fatalf("insert %d", i)
 		}
@@ -131,7 +131,7 @@ func TestCuckooFalsePositiveRateIsBounded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		if !f.Insert(i) {
 			t.Fatalf("insert %d", i)
 		}

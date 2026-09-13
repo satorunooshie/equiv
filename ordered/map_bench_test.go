@@ -62,7 +62,7 @@ func BenchmarkOrderedMapOperations(b *testing.B) {
 				b.StartTimer()
 				for i := 0; i < b.N; i++ {
 					m.Clear()
-					for k := 0; k < size; k++ {
+					for k := range size {
 						m.Set(k, k)
 					}
 				}
@@ -73,7 +73,7 @@ func BenchmarkOrderedMapOperations(b *testing.B) {
 
 func filledOrderedMap(size int) *Map[int, int] {
 	m := NewMap[int, int](maphash.ComparableHasher[int]{})
-	for i := 0; i < size; i++ {
+	for i := range size {
 		m.Set(i, i)
 	}
 	return m

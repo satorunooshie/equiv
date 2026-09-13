@@ -16,11 +16,11 @@ func main() {
 		panic(err)
 	}
 	var wg sync.WaitGroup
-	for worker := 0; worker < 4; worker++ {
+	for worker := range 4 {
 		wg.Add(1)
 		go func(worker int) {
 			defer wg.Done()
-			for i := 0; i < 100; i++ {
+			for i := range 100 {
 				m.GetOrSet(fmt.Sprintf("user:%d", i), worker)
 			}
 		}(worker)

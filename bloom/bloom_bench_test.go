@@ -22,7 +22,7 @@ func BenchmarkBloomContains(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		f.Add(i)
 	}
 	b.ReportAllocs()

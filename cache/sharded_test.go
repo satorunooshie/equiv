@@ -12,7 +12,7 @@ func TestShardedPartitionsCapacity(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		c.Set(i, i)
 	}
 	if c.Len() > 4 {

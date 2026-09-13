@@ -248,7 +248,7 @@ func TestLFUAgesFrequencies(t *testing.T) {
 		t.Fatal(e)
 	}
 	c.Set(1, 1)
-	for i := 0; i < 4096; i++ {
+	for range 4096 {
 		c.Get(1)
 	}
 	x, _ := c.m.Get(1)
@@ -337,7 +337,7 @@ func TestWTinyLFUHasWindowAndMainSegments(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		c.Set(i, i)
 	}
 	window := 0

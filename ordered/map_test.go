@@ -35,7 +35,7 @@ func TestValueUpdateDoesNotInvalidateIterator(t *testing.T) {
 
 func TestDeleteFuncDoesNotUseFailFastIterator(t *testing.T) {
 	m := NewSet[int](maphash.ComparableHasher[int]{})
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		m.Insert(i)
 	}
 	if got := m.DeleteFunc(func(v int) bool { return v%2 == 0 }); got != 5 || m.Len() != 5 {

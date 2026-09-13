@@ -62,7 +62,7 @@ func BenchmarkMapOperations(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
 					m := equiv.NewMap[int, int](maphash.ComparableHasher[int]{})
-					for k := 0; k < size; k++ {
+					for k := range size {
 						m.Set(k, k)
 					}
 				}
@@ -73,7 +73,7 @@ func BenchmarkMapOperations(b *testing.B) {
 				b.StartTimer()
 				for i := 0; i < b.N; i++ {
 					m.Clear()
-					for k := 0; k < size; k++ {
+					for k := range size {
 						m.Set(k, k)
 					}
 				}
@@ -86,7 +86,7 @@ func BenchmarkComparableMapGet(b *testing.B) {
 	for _, size := range benchmarkSizes {
 		b.Run(sizeName(size), func(b *testing.B) {
 			m := make(map[int]int, size)
-			for i := 0; i < size; i++ {
+			for i := range size {
 				m[i] = i
 			}
 			b.ResetTimer()
@@ -103,7 +103,7 @@ func BenchmarkMapCollisionLookup(b *testing.B) {
 	for _, size := range []int{8, 64, 1 << 10, 1 << 16} {
 		b.Run(sizeName(size), func(b *testing.B) {
 			m := equiv.NewMap[int, int](constantHasher{})
-			for i := 0; i < size; i++ {
+			for i := range size {
 				m.Set(i, i)
 			}
 			b.ResetTimer()
@@ -118,7 +118,7 @@ func BenchmarkStringEncodedMapGet(b *testing.B) {
 	for _, size := range benchmarkSizes {
 		b.Run(sizeName(size), func(b *testing.B) {
 			m := make(map[string]int, size)
-			for i := 0; i < size; i++ {
+			for i := range size {
 				m[strconv.Itoa(i)] = i
 			}
 			b.ResetTimer()
@@ -131,7 +131,7 @@ func BenchmarkStringEncodedMapGet(b *testing.B) {
 
 func filledMap(size int) *equiv.Map[int, int] {
 	m := equiv.NewMap[int, int](maphash.ComparableHasher[int]{})
-	for i := 0; i < size; i++ {
+	for i := range size {
 		m.Set(i, i)
 	}
 	return m

@@ -7,7 +7,7 @@ import (
 
 func BenchmarkCuckooContains(b *testing.B) {
 	f, _ := New[int](maphash.ComparableHasher[int]{}, Config{Capacity: 10000})
-	for i := 0; i < 5000; i++ {
+	for i := range 5000 {
 		f.Insert(i)
 	}
 	b.ResetTimer()

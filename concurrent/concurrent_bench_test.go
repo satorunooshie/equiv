@@ -15,7 +15,7 @@ func BenchmarkConcurrentMapOperations(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			for i := 0; i < size; i++ {
+			for i := range size {
 				m.Set(i, i)
 			}
 			b.Run("get", func(b *testing.B) {
@@ -55,7 +55,7 @@ func BenchmarkConcurrentMapOperations(b *testing.B) {
 				b.StartTimer()
 				for i := 0; i < b.N; i++ {
 					m.Clear()
-					for k := 0; k < size; k++ {
+					for k := range size {
 						m.Set(k, k)
 					}
 				}

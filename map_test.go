@@ -11,27 +11,27 @@ import (
 
 func TestMapHandlesFullHashCollisions(t *testing.T) {
 	m := equiv.NewMap[int, int](constantHasher{})
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		m.Set(i, i*i)
 	}
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		if v, ok := m.Get(i); !ok || v != i*i {
 			t.Fatalf("Get(%d)=(%d,%v)", i, v, ok)
 		}
 	}
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		if !m.Delete(i) {
 			t.Fatalf("Delete(%d) failed", i)
 		}
 	}
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		m.Set(i, -i)
 	}
 	clone := m.Clone()
 	if clone.Len() != 100 {
 		t.Fatalf("Clone Len=%d", clone.Len())
 	}
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		if v, ok := clone.Get(i); !ok || v != -i {
 			t.Fatalf("Clone Get(%d)=(%d,%v)", i, v, ok)
 		}
@@ -73,7 +73,7 @@ func TestMapIteratorFailFast(t *testing.T) {
 
 func TestDeleteFuncDoesNotSkipEntries(t *testing.T) {
 	m := equiv.NewMap[int, int](maphash.ComparableHasher[int]{})
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		m.Set(i, i)
 	}
 	if n := m.DeleteFunc(func(k, v int) bool { return k%2 == 0 }); n != 50 || m.Len() != 50 {
@@ -92,7 +92,7 @@ func TestMapRejectsOverflowingCapacity(t *testing.T) {
 
 func TestMapIteratorsDoNotAllocate(t *testing.T) {
 	m := equiv.NewMap[int, int](maphash.ComparableHasher[int]{})
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		m.Set(i, i)
 	}
 	for name, run := range map[string]func(){

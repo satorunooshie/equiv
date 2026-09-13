@@ -5,6 +5,7 @@ import (
 	"errors"
 	"hash/maphash"
 	"iter"
+	"slices"
 
 	"github.com/satorunooshie/equiv"
 )
@@ -59,7 +60,7 @@ func build[T any](h maphash.Hasher[T], vals []T, bits uint8) (maphash.Seed, []ui
 	if len(vals) == 0 {
 		return maphash.MakeSeed(), make([]uint16, 1), nil
 	}
-	for attempt := 0; attempt < 128; attempt++ {
+	for range 128 {
 		seed := maphash.MakeSeed()
 		m := int(float64(len(vals))*1.30) + 3
 		deg := make([]uint8, m)
@@ -108,8 +109,8 @@ func build[T any](h maphash.Hasher[T], vals []T, bits uint8) (maphash.Seed, []ui
 		}
 		mask := uint16((1 << bits) - 1)
 		out := make([]uint16, m)
-		for j := len(order) - 1; j >= 0; j-- {
-			e, q := order[j].edge, order[j].vertex
+		for _, o := range slices.Backward(order) {
+			e, q := o.edge, o.vertex
 			d := digest(h, seed, vals[e])
 			p := positions(d, m)
 			fp := uint16((d ^ (d >> 23) ^ (d >> 41)) & uint64(mask))

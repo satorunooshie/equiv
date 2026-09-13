@@ -23,7 +23,7 @@ var benchmarkPolicies = []struct {
 
 func BenchmarkCacheGet(b *testing.B) {
 	c, _ := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 1024})
-	for i := 0; i < 1024; i++ {
+	for i := range 1024 {
 		c.Set(i, i)
 	}
 	b.ResetTimer()
@@ -49,7 +49,7 @@ func BenchmarkCachePoliciesUniform(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			for i := 0; i < 1024; i++ {
+			for i := range 1024 {
 				c.Set(i, i)
 			}
 			b.ResetTimer()
@@ -76,7 +76,7 @@ func BenchmarkCachePolicyWorkloads(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				for i := 0; i < 256; i++ {
+				for i := range 256 {
 					c.Set(i, i)
 				}
 				b.ResetTimer()

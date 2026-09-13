@@ -10,7 +10,7 @@ func BenchmarkStrongOperations(b *testing.B) {
 	for _, size := range []int{8, 64, 1 << 10, 1 << 16, 1 << 20} {
 		b.Run(strconv.Itoa(size), func(b *testing.B) {
 			i := NewStrong[int](maphash.ComparableHasher[int]{})
-			for k := 0; k < size; k++ {
+			for k := range size {
 				i.Intern(k)
 			}
 			b.Run("lookup", func(b *testing.B) {

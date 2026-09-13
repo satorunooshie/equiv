@@ -17,7 +17,7 @@ func TestCompositeHashersSatisfyHasherLaws(t *testing.T) {
 	intHasher := maphash.ComparableHasher[int]{}
 	stringHasher := maphash.ComparableHasher[string]{}
 	hashtest.Check(t, hashers.Bytes(), [][]byte{nil, {}, []byte("a"), []byte("b")})
-	hashtest.Check(t, hashers.Deref(stringHasher), []*string{nil, ptr("a"), ptr("b")})
+	hashtest.Check(t, hashers.Deref(stringHasher), []*string{nil, new("a"), new("b")})
 	hashtest.Check(t, hashers.Slice(stringHasher), [][]string{{}, {"a"}, {"a", "b"}})
 	hashtest.Check(t, hashers.Tuple2Of(intHasher, stringHasher), []hashers.Tuple2[int, string]{
 		{First: 1, Second: "a"}, {First: 2, Second: "b"},
@@ -38,7 +38,8 @@ func TestCompositeHashersSatisfyHasherLaws(t *testing.T) {
 	hashtest.Check(t, custom, []string{"a", "b"})
 }
 
-func ptr(v string) *string { return &v }
+//go:fix inline
+func ptr(v string) *string { return new(v) }
 
 func TestCompositeConstructorsRejectNilHashers(t *testing.T) {
 	var h maphash.Hasher[int]

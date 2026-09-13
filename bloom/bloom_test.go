@@ -61,7 +61,7 @@ func TestBloomFalsePositiveRateIsCalibrated(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		f.Add(i)
 	}
 	falsePositives := 0
@@ -105,7 +105,7 @@ func TestCountingBloomFalsePositiveRateIsCalibrated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		f.Add(i)
 	}
 	falsePositives := 0

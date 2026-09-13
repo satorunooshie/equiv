@@ -5,6 +5,7 @@ package ordered
 import (
 	"hash/maphash"
 	"iter"
+	"slices"
 
 	"github.com/satorunooshie/equiv"
 )
@@ -132,11 +133,11 @@ func (m *Map[K, V]) forward(back bool) iter.Seq2[K, V] {
 	return func(y func(K, V) bool) {
 		ver := m.ver
 		if back {
-			for i := len(m.order) - 1; i >= 0; i-- {
+			for _, k := range slices.Backward(m.order) {
 				if ver != m.ver {
 					panic("ordered: collection structurally mutated during iteration")
 				}
-				k := m.order[i]
+
 				v, ok := m.m.Get(k)
 				if ok && !y(k, v) {
 					return

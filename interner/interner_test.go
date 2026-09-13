@@ -100,7 +100,7 @@ func TestWeakSweepRemovesCollectedEntries(t *testing.T) {
 		runtime.SetFinalizer(&value, func(*string) { close(ready) })
 		i.Intern(&value)
 	}()
-	for attempt := 0; attempt < 20; attempt++ {
+	for range 20 {
 		runtime.GC()
 		select {
 		case <-ready:

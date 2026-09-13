@@ -18,7 +18,7 @@ func TestSketches(t *testing.T) {
 	f := NewFamily[int](maphash.ComparableHasher[int]{})
 	a, _ := f.NewHyperLogLog(8)
 	b, _ := f.NewHyperLogLog(8)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		a.Add(i)
 		b.Add(i)
 	}
@@ -69,7 +69,7 @@ func TestHLLEstimateIsWithinExpectedRange(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		h.Add(i)
 	}
 	got := h.Estimate()
@@ -117,10 +117,10 @@ func TestCountMinErrorIsBoundedOnDistinctKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		s.Add(i, 1)
 	}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		if got := s.Estimate(i); got < 1 || got > 100 {
 			t.Fatalf("estimate(%d)=%d, want [1,100]", i, got)
 		}

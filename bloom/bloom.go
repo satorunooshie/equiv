@@ -33,14 +33,8 @@ func New[T any](h maphash.Hasher[T], expected uint64, p float64) (*Filter[T], er
 	if math.IsInf(mFloat, 0) || mFloat > float64(maxInt-63) {
 		return nil, errors.New("bloom: parameters require too much memory")
 	}
-	m := uint64(mFloat)
-	if m < 1 {
-		m = 1
-	}
-	k := uint64(math.Round(float64(m) / float64(expected) * math.Ln2))
-	if k < 1 {
-		k = 1
-	}
+	m := max(uint64(mFloat), 1)
+	k := max(uint64(math.Round(float64(m)/float64(expected)*math.Ln2)), 1)
 	return &Filter[T]{h: h, seed: maphash.MakeSeed(), bits: make([]uint64, (m+63)/64), m: m, k: k}, nil
 }
 

@@ -30,10 +30,10 @@ func (constantHasher) Hash(h *maphash.Hash, _ int) { h.WriteByte(1) }
 func (constantHasher) Equal(a, b int) bool         { return a == b }
 func TestMapCollisionCorrectness(t *testing.T) {
 	m := equiv.NewMap[int, int](constantHasher{})
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		m.Set(i, i*i)
 	}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		if v, ok := m.Get(i); !ok || v != i*i {
 			t.Fatalf("collision lookup %d=(%d,%v)", i, v, ok)
 		}
