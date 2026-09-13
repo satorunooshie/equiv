@@ -86,3 +86,31 @@ func TestEmptySetAlgebraAndPredicates(t *testing.T) {
 		t.Fatal("empty set difference failed")
 	}
 }
+
+func TestSetHandlesFullHashCollisions(t *testing.T) {
+	s := NewSet[int](constantHasher{})
+	for i := range 100 {
+		s.Insert(i)
+	}
+	if s.Len() != 100 {
+		t.Fatalf("Len=%d, want 100", s.Len())
+	}
+	for i := range 100 {
+		if !s.Contains(i) {
+			t.Fatalf("missing %d", i)
+		}
+	}
+	for i := 0; i < 100; i += 2 {
+		if !s.Delete(i) {
+			t.Fatalf("Delete(%d) failed", i)
+		}
+	}
+	if s.Len() != 50 || s.Contains(0) || !s.Contains(1) {
+		t.Fatalf("collision delete corrupted set: len=%d", s.Len())
+	}
+}
+
+type constantHasher struct{}
+
+func (constantHasher) Hash(h *maphash.Hash, _ int) { h.WriteByte(1) }
+func (constantHasher) Equal(a, b int) bool         { return a == b }

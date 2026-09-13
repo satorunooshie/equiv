@@ -1,26 +1,66 @@
 # equiv
 
-> **Semantic hash infrastructure for Go.**
+> Define key semantics once. Reuse them everywhere.
 
-Define identity once with `hash/maphash.Hasher[T]`, then reuse it across maps,
-sets, interners, caches, concurrent collections, filters, and sketches.
+`equiv` is a Go 1.27 ecosystem centered on the standard
+`hash/maphash.Hasher[T]` protocol. Define a key once, then reuse that definition
+with exact collections, operational structures, and probabilistic structures.
 
 `equiv` provides semantic hash-based collections for Go 1.27. The library is
 designed around semantic expressiveness, standard-library interoperability,
-type safety, policy completeness, and predictable performance—not merely as a
-faster built-in map.
+type safety, policy completeness, and predictable performance.
+
+Go's built-in `map` is the right default when `==` already expresses the
+desired key semantics. `equiv` is for non-comparable or domain-specific keys,
+and for cases where one key definition must be reused across multiple
+structures.
 
 ```go
-m := equiv.NewMap[[]string, int](hashers.Slice(maphash.ComparableHasher[string]{}))
-m.Set([]string{"foo", "bar"}, 42)
-v, ok := m.Get([]string{"foo", "bar"})
+identity := hashers.Slice(maphash.ComparableHasher[string]{})
+exact := equiv.NewMap[[]string, int](identity)
+seen := equiv.NewSet[[]string](identity)
+filter, err := bloom.New(identity, 100_000, 0.01)
+if err != nil {
+	panic(err)
+}
+
+exact.Set([]string{"foo", "bar"}, 42)
+seen.Insert([]string{"foo", "bar"})
+filter.Add([]string{"foo", "bar"})
 ```
 
-Data participating in a resident key's semantic identity must remain unchanged
-while that key is stored. The zero value of stateful collections is invalid;
-construct them with their `New` function.
+Exact collections use hashing and equality for collision-safe lookup.
+Probabilistic structures reuse the same hashing definition under their own
+accuracy guarantees.
 
-## Components at a glance
+Data participating in a resident key's semantic identity must not be mutated
+while that key remains stored. The zero value of stateful collections is
+invalid; construct them with their `New` function.
+
+## Components
+
+### Identity layer
+
+`hashers` builds reflection-free key definitions. `hashtest` provides
+diagnostic contract checks; it does not prove correctness or statelessness for
+arbitrary inputs.
+
+### Exact consumers
+
+`Map` / `Set`, `ordered`, `multimap` / `multiset`, and `interner` preserve exact
+semantic lookup using both `Hash` and `Equal`.
+
+### Operational consumers
+
+`concurrent` and `cache` add synchronization, expiration, loading, eviction,
+and admission policies while keeping resident-key correctness exact.
+
+### Probabilistic consumers
+
+`bloom`, `cuckoo`, `xorfilter`, and `sketch` provide structure-specific
+approximate or probabilistic contracts.
+
+## Package details
 
 | Component | What it provides | Typical use | Why it exists |
 | --- | --- | --- | --- |

@@ -204,3 +204,37 @@ func TestInvalidShardOptions(t *testing.T) {
 		}
 	}
 }
+
+func TestConcurrentMapHandlesFullHashCollisions(t *testing.T) {
+	m, err := NewMap[int, int](constantHasher{}, WithShards(4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 100 {
+		m.Set(i, i*i)
+	}
+	if m.Len() != 100 {
+		t.Fatalf("Len=%d, want 100", m.Len())
+	}
+	for i := range 100 {
+		if v, ok := m.Get(i); !ok || v != i*i {
+			t.Fatalf("Get(%d)=(%d,%v)", i, v, ok)
+		}
+	}
+	for i := 0; i < 100; i += 2 {
+		if !m.Delete(i) {
+			t.Fatalf("Delete(%d) failed", i)
+		}
+	}
+	if _, ok := m.Get(0); m.Len() != 50 || ok {
+		t.Fatalf("collision delete corrupted map: len=%d", m.Len())
+	}
+	if _, ok := m.Get(1); !ok {
+		t.Fatal("collision delete removed unrelated entry")
+	}
+}
+
+type constantHasher struct{}
+
+func (constantHasher) Hash(h *maphash.Hash, _ int) { h.WriteByte(1) }
+func (constantHasher) Equal(a, b int) bool         { return a == b }
