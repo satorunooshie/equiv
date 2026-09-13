@@ -14,21 +14,22 @@ func BenchmarkMapOperations(b *testing.B) {
 				m.Add(i, i)
 			}
 			b.Run("values", func(b *testing.B) {
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				i := 0
+				for b.Loop() {
 					for range m.Values(i % size) {
 					}
+					i++
 				}
 			})
 			b.Run("add", func(b *testing.B) {
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				i := 0
+				for b.Loop() {
 					m.Add(i%size, i)
+					i++
 				}
 			})
 			b.Run("iterate", func(b *testing.B) {
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				for b.Loop() {
 					for range m.All() {
 					}
 				}

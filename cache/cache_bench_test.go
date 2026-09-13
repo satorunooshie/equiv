@@ -26,17 +26,19 @@ func BenchmarkCacheGet(b *testing.B) {
 	for i := range 1024 {
 		c.Set(i, i)
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
 		c.Get(i & 1023)
+		i++
 	}
 }
 
 func BenchmarkCacheSet(b *testing.B) {
 	c, _ := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 1024})
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
 		c.Set(i&1023, i)
+		i++
 	}
 }
 
@@ -52,14 +54,15 @@ func BenchmarkCachePoliciesUniform(b *testing.B) {
 			for i := range 1024 {
 				c.Set(i, i)
 			}
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			i := 0
+			for b.Loop() {
 				key := (i*17 + i/31) & 2047
 				if i&3 == 0 {
 					c.Set(key, i)
 				} else {
 					c.Get(key)
 				}
+				i++
 			}
 		})
 	}
@@ -79,9 +82,10 @@ func BenchmarkCachePolicyWorkloads(b *testing.B) {
 				for i := range 256 {
 					c.Set(i, i)
 				}
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				i := 0
+				for b.Loop() {
 					workloadCacheOp(c, workload, i)
+					i++
 				}
 			})
 		}
@@ -98,11 +102,12 @@ func BenchmarkCacheWeightedObjects(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			i := 0
+			for b.Loop() {
 				k := i & 511
 				c.Set(k, (k&7)+1)
 				c.Get((i * 17) & 511)
+				i++
 			}
 		})
 	}

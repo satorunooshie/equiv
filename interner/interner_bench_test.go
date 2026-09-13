@@ -14,20 +14,21 @@ func BenchmarkStrongOperations(b *testing.B) {
 				i.Intern(k)
 			}
 			b.Run("lookup", func(b *testing.B) {
-				b.ResetTimer()
-				for k := 0; k < b.N; k++ {
+				k := 0
+				for b.Loop() {
 					_, _ = i.Lookup(k % size)
+					k++
 				}
 			})
 			b.Run("intern", func(b *testing.B) {
-				b.ResetTimer()
-				for k := 0; k < b.N; k++ {
+				k := 0
+				for b.Loop() {
 					i.Intern(k % size)
+					k++
 				}
 			})
 			b.Run("iterate", func(b *testing.B) {
-				b.ResetTimer()
-				for k := 0; k < b.N; k++ {
+				for b.Loop() {
 					for range i.All() {
 					}
 				}
