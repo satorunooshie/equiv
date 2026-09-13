@@ -75,11 +75,7 @@ func (m *Map[K, V]) Delete(k K) bool {
 	m.m.Delete(k)
 	for i, k := range m.order {
 		if m.h.Equal(k, stored) {
-			last := len(m.order) - 1
-			copy(m.order[i:], m.order[i+1:])
-			var zero K
-			m.order[last] = zero
-			m.order = m.order[:last]
+			m.order = slices.Delete(m.order, i, i+1)
 			m.ver++
 			break
 		}
@@ -174,8 +170,7 @@ func (m *Map[K, V]) MoveToFront(k K) bool {
 			if i == 0 {
 				return true
 			}
-			copy(m.order[1:i+1], m.order[:i])
-			m.order[0] = stored
+			m.order = slices.Insert(slices.Delete(m.order, i, i+1), 0, stored)
 			m.ver++
 			return true
 		}
@@ -194,7 +189,7 @@ func (m *Map[K, V]) MoveToBack(k K) bool {
 			if i == len(m.order)-1 {
 				return true
 			}
-			m.order = append(append(m.order[:i], m.order[i+1:]...), stored)
+			m.order = append(slices.Delete(m.order, i, i+1), stored)
 			m.ver++
 			return true
 		}

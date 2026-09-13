@@ -3,6 +3,7 @@ package interner
 import (
 	"hash/maphash"
 	"iter"
+	"slices"
 	"weak"
 )
 
@@ -81,17 +82,11 @@ func (i *Weak[T]) Lookup(v *T) (*T, bool) {
 
 // Sweep removes entries whose canonical objects are no longer live.
 func (i *Weak[T]) Sweep() int {
-	n := 0
-	keep := i.entries[:0]
-	for _, e := range i.entries {
-		if e.ptr.Value() != nil {
-			keep = append(keep, e)
-		} else {
-			n++
-		}
-	}
-	i.entries = keep
-	return n
+	before := len(i.entries)
+	i.entries = slices.DeleteFunc(i.entries, func(e weakEntry[T]) bool {
+		return e.ptr.Value() == nil
+	})
+	return before - len(i.entries)
 }
 
 // LenApprox returns the number of index entries before dead-entry compaction.

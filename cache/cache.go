@@ -6,6 +6,7 @@ import (
 	"errors"
 	"hash/maphash"
 	"iter"
+	"slices"
 	"sync"
 	"time"
 
@@ -236,7 +237,7 @@ func (c *Cache[K, V]) flush() {
 			c.mu.Unlock()
 			return
 		}
-		events := append([]Event[K, V](nil), c.pending...)
+		events := slices.Clone(c.pending)
 		c.pending = nil
 		c.mu.Unlock()
 		for _, e := range events {
@@ -822,7 +823,7 @@ func (c *Cache[K, V]) PruneExpired() int {
 	c.mu.Lock()
 	n := 0
 	now := c.now()
-	for _, k := range append([]K(nil), c.items...) {
+	for _, k := range slices.Clone(c.items) {
 		if x, ok := c.m.Get(k); ok && c.expired(x, now) {
 			if c.remove(k, EventExpire) {
 				n++

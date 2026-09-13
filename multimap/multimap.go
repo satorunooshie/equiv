@@ -5,6 +5,7 @@ package multimap
 import (
 	"hash/maphash"
 	"iter"
+	"slices"
 
 	"github.com/satorunooshie/equiv"
 )
@@ -61,16 +62,8 @@ func (m *Map[K, V]) DeleteFunc(k K, f func(V) bool) int {
 	if !ok {
 		return 0
 	}
-	n := 0
-	keep := x[:0]
-	for _, v := range x {
-		if f(v) {
-			n++
-		} else {
-			keep = append(keep, v)
-		}
-	}
-	clear(x[len(keep):])
+	keep := slices.DeleteFunc(x, f)
+	n := len(x) - len(keep)
 	if len(keep) == 0 {
 		m.m.Delete(k)
 	} else {

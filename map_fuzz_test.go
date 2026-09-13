@@ -2,6 +2,7 @@ package equiv_test
 
 import (
 	"hash/maphash"
+	"slices"
 	"testing"
 
 	"github.com/satorunooshie/equiv"
@@ -13,7 +14,7 @@ func FuzzMapBytes(f *testing.F) {
 	f.Fuzz(func(t *testing.T, a, b []byte) {
 		m := equiv.NewMap[[]byte, int](hashers.Bytes())
 		m.Set(a, 1)
-		if v, ok := m.Get(append([]byte(nil), a...)); !ok || v != 1 {
+		if v, ok := m.Get(slices.Clone(a)); !ok || v != 1 {
 			t.Fatalf("semantic lookup failed")
 		}
 		m.Set(b, 2)

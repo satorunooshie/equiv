@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"hash/maphash"
+	"slices"
 )
 
 // bytesHasher compares byte slices by contents; nil and empty are equivalent.
@@ -243,6 +244,6 @@ func (h structHasher[T]) Equal(a, b T) bool {
 
 // Build freezes the builder's current fields into an immutable Hasher value.
 func (b *StructBuilder[T]) Build() maphash.Hasher[T] {
-	fs := append([]field[T](nil), b.fields...)
+	fs := slices.Clone(b.fields)
 	return structHasher[T]{fs}
 }
