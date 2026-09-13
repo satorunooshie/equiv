@@ -51,10 +51,12 @@ Suppose `TenantID`, `Method`, and `Path` identify a request while `TraceID`
 does not.
 
 ```go
+import "strings"
+
 hasher := maphash.ComparableHasher[string]{}
 
 requestKey := hashers.Struct[Request]().
-	Field(func(r Request) string { return r.TenantID }, hasher).
+	Field(func(r Request) string { return strings.ToLower(r.TenantID) }, hasher).
 	Field(func(r Request) string { return r.Method }, hasher).
 	Field(func(r Request) []string { return r.Path }, hashers.Slice(hasher)).
 	Build()
