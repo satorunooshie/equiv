@@ -12,18 +12,18 @@ func BenchmarkTableProbeMetrics(b *testing.B) {
 		t.Set(i, i)
 	}
 	t.resetMetrics()
-	sampleN := min(b.N, 10000)
-	samples := make([]uint64, sampleN)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	samples := make([]uint64, 10000)
+	i := 0
+	for b.Loop() {
 		before := t.probes.Load()
 		t.Get(i % 5000)
-		if i < sampleN {
+		if i < len(samples) {
 			samples[i] = t.probes.Load() - before
 		}
+		i++
 	}
-	b.StopTimer()
 	m := t.metrics()
+	samples = samples[:min(i, len(samples))]
 	slices.Sort(samples)
 	p95 := uint64(0)
 	if len(samples) > 0 {
