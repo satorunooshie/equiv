@@ -1,7 +1,9 @@
 package map_test
 
 import (
+	"bytes"
 	"hash/maphash"
+	"slices"
 	"strings"
 	"testing"
 
@@ -98,19 +100,8 @@ type projectedKey struct {
 	Name string
 }
 
-func bytesEqual(a, b []byte) bool { return string(a) == string(b) }
-
-func stringSliceEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
+func bytesEqual(a, b []byte) bool         { return bytes.Equal(a, b) }
+func stringSliceEqual(a, b []string) bool { return slices.Equal(a, b) }
 
 func gomapHash[T any](h maphash.Hasher[T]) func(maphash.Seed, T) uint64 {
 	return func(seed maphash.Seed, value T) uint64 {

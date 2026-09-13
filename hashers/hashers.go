@@ -3,6 +3,7 @@ package hashers
 
 import (
 	"bytes"
+	"encoding/binary"
 	"hash/maphash"
 )
 
@@ -171,9 +172,7 @@ func writeChild[T any, H maphash.Hasher[T]](out *maphash.Hash, h H, v T) {
 }
 
 func put64(b []byte, v uint64) {
-	for i := range b {
-		b[i] = byte(v >> uint(8*i))
-	}
+	binary.LittleEndian.PutUint64(b, v)
 }
 
 // funcHasher adapts caller-provided Hash and Equal functions. Both functions

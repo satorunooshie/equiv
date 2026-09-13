@@ -38,9 +38,6 @@ func TestCompositeHashersSatisfyHasherLaws(t *testing.T) {
 	hashtest.Check(t, custom, []string{"a", "b"})
 }
 
-//go:fix inline
-func ptr(v string) *string { return new(v) }
-
 func TestCompositeConstructorsRejectNilHashers(t *testing.T) {
 	var h maphash.Hasher[int]
 	assertPanics(t, func() { hashers.By(func(string) int { return 0 }, h) })

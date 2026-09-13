@@ -23,12 +23,11 @@ func (h *HyperLogLog[T]) Add(v T) {
 	z := x.Sum64()
 	idx := z >> uint(64-h.p)
 	w := z << h.p
-	r := uint8(bitsLeading(w) + 1)
+	r := uint8(bits.LeadingZeros64(w) + 1)
 	if r > h.reg[idx] {
 		h.reg[idx] = r
 	}
 }
-func bitsLeading(x uint64) int { return bits.LeadingZeros64(x) }
 
 // Estimate returns the approximate number of distinct values.
 func (h *HyperLogLog[T]) Estimate() uint64 {
