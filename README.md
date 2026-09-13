@@ -1,226 +1,129 @@
 # equiv
 
-> Define semantic identity once. Reuse it everywhere.
-
-`equiv` is a Go 1.27 library for defining what makes two keys equivalent once, then reusing that definition across maps, sets, caches, probabilistic filters, and other keyed data structures.
-
-Go’s built-in map is the right default when `==` already expresses the identity you need.
-
-But sometimes identity means something else:
-
-* `[]byte` compared by contents
-* `[]string` used as a composite key
-* structs identified by selected fields
-* normalized or case-insensitive values
-* domain objects with application-specific identity
-
-And when the same kind of key is used across multiple data structures, those structures should agree on what “the same key” means.
-
-A map, cache, and Bloom filter can otherwise silently encode different hashing and equality rules.
-
-`equiv` makes `hash/maphash.Hasher[T]` the shared definition of that identity.
-
-## Define once
+`equiv` lets keyed data structures share a definition of key identity across
+maps, caches, filters, and other data structures.
 
 ```go
-identity := hashers.Slice(
-	maphash.ComparableHasher[string]{},
-)
+key := hashers.Slice(maphash.ComparableHasher[string]{})
+m := equiv.NewMap[[]string, Value](key)
+c, _ := cache.New[[]string, Value](key, cache.Config[[]string, Value]{
+	MaxEntries: 10_000,
+})
+f, _ := bloom.New(key, 100_000, 0.01)
 ```
 
-This value defines the semantic identity of a `[]string`.
+The values remain `[]string`; only their identity is defined separately.
 
-## Reuse everywhere
+`equiv` uses Go 1.27’s `maphash.Hasher[T]` as that boundary.
+
+```text
+                         maphash.Hasher[T]
+                                │
+              ┌─────────────────┼─────────────────┐
+              │                 │                 │
+           Exact            Operational      Probabilistic
+              │                 │                 │
+       Map / Set / Multi*      Cache          Bloom / Cuckoo
+       Ordered / Interner    Concurrent       XOR / Sketch
+```
+
+For comparable keys whose `==` semantics are what you want, prefer Go’s
+built-in `map`.
+
+Use `equiv` when key identity needs to be defined separately—for example, for
+non-comparable values, identity based on selected fields, or semantics shared
+across multiple keyed data structures.
+
+## Defining identity
+
+Key identity does not always match the representation of a value.
 
 ```go
-exact := equiv.NewMap[[]string, int](identity)
-seen := equiv.NewSet[[]string](identity)
-filter, err := bloom.New(identity, 100_000, 0.01)
-if err != nil {
-	panic(err)
+type Request struct {
+	TenantID string
+	Method   string
+	Path     []string
+	TraceID  string
 }
 ```
 
-The same identity definition is reused by every structure.
-
-```text
-                  semantic identity
-                         │
-                    Hasher[T]
-                         │
-          ┌──────────────┼──────────────┐
-          │              │              │
-       Exact         Operational    Probabilistic
-          │              │              │
-      Map / Set         Cache       Bloom / Cuckoo
-      Ordered         Concurrent        XOR
-      Multimap                         Sketch
-      Interner
-```
-
-One identity definition. Different data structures. Consistent semantics.
-
-## Why equiv?
-
-Without a shared identity definition, the same domain rule tends to be reimplemented by every keyed structure.
-
-For example, suppose an application considers two values equivalent after normalization:
-
-```text
-Map       → normalization + hashing + equality
-Cache     → normalization + hashing + equality
-Bloom     → normalization + hashing
-Set       → normalization + hashing + equality
-```
-
-Each implementation can drift independently.
-
-With `equiv`:
-
-```text
-                    Hasher[T]
-                        │
-          ┌─────────────┼─────────────┐
-          ▼             ▼             ▼
-         Map           Cache         Bloom
-```
-
-Identity becomes a reusable value rather than an implementation detail of each data structure.
-
-`equiv` deliberately uses the standard `hash/maphash.Hasher[T]` protocol instead of introducing another hashing or equality abstraction.
-
-## When should I use equiv?
-
-Use `equiv` when:
-
-* your key is not Go-comparable
-* `==` does not express your domain’s notion of identity
-* you need content-based, normalized, or projected identity
-* the same key semantics must be shared across multiple structures
-
-For example:
+Suppose `TenantID`, `Method`, and `Path` identify a request while `TraceID`
+does not.
 
 ```go
-// []string cannot be a built-in map key.
-// Here its contents define its identity.
-identity := hashers.Slice(
-	maphash.ComparableHasher[string]{},
-)
-users := equiv.NewMap[[]string, User](identity)
-users.Set([]string{"acme", "alice"}, user)
-u, ok := users.Get([]string{"acme", "alice"})
+requestKey := hashers.Struct[Request]().
+	Field(
+		func(r Request) string { return r.TenantID },
+		maphash.ComparableHasher[string]{},
+	).
+	Field(
+		func(r Request) string { return r.Method },
+		maphash.ComparableHasher[string]{},
+	).
+	Field(
+		func(r Request) []string { return r.Path },
+		hashers.Slice(maphash.ComparableHasher[string]{}),
+	).
+	Build()
 ```
 
-The two slices do not need to be the same slice. Their contents determine whether they represent the same key.
-
-## When should I not use equiv?
-
-If ordinary Go equality already expresses the semantics you need, prefer the built-in map.
+The same definition can then be used wherever request identity is needed:
 
 ```go
-map[string]User
-map[int]Session
-map[UserID]User
+responses, _ := cache.New[Request, Response](requestKey, cache.Config[Request, Response]{
+	MaxEntries: 10_000,
+})
+inflight, _ := concurrent.NewMap[Request, *Call](requestKey)
+seen := equiv.NewSet[Request](requestKey)
+filter, _ := bloom.New(requestKey, 100_000, 0.01)
 ```
 
-`equiv` is not intended to replace Go’s built-in collections.
+Each structure has different storage and algorithmic behavior, but they agree
+on what makes two `Request` values the same key.
 
-It exists for cases where key identity needs to be richer than `==`, or where that identity needs to become a reusable contract across multiple data structures.
+## Components
 
-## Identity
-
-`hashers` provides reflection-free building blocks for constructing reusable `maphash.Hasher[T]` definitions.
-
-They can define identity for:
-
-* bytes and slices
-* projections
-* dereferenced values
-* tuples
-* structs
-* custom functions
-
-For example, a domain object can be identified by one of its fields rather than its entire representation:
-
-```go
-identity := hashers.By(
-	func(u User) UserID { return u.ID },
-	maphash.ComparableHasher[UserID]{},
-)
-```
-
-Every consumer receiving this hasher now uses the same definition of `User` identity.
-
-`hashtest` can be used to verify the base and strict-equivalence contracts of custom definitions.
-
-## Consumers
-
-Consumers are grouped by the guarantees they provide.
-
-### Exact
-
-Exact structures use both hashing and equality for collision-safe lookup.
-
-| Package | Purpose |
+| Component | What it provides |
 | --- | --- |
-| `equiv.Map` / `equiv.Set` | Semantic-key maps and sets |
-| `ordered` | Insertion-ordered maps and sets |
-| `multimap` / `multiset` | Multiple values or multiplicities |
+| `equiv` | Exact Map and Set |
+| `hashers` | Reflection-free `maphash.Hasher[T]` composition |
+| `ordered` | Insertion-ordered collections |
+| `multimap` / `multiset` | Multiple values and multiplicities |
 | `interner` | Strong and weak canonicalization |
+| `concurrent` | Concurrent collections |
+| `cache` | Loading, expiration, and eviction |
+| `bloom` / `cuckoo` / `xorfilter` | Probabilistic membership |
+| `sketch` | Frequency and cardinality estimation |
 
-### Operational
+Exact collections use both `Hash` and `Equal`, so hash collisions do not
+change equality semantics. Probabilistic structures retain the guarantees of
+their respective algorithms.
 
-Operational structures preserve exact resident-key semantics while adding runtime behavior.
+## Contracts
 
-| Package | Purpose |
-| --- | --- |
-| `concurrent` | Sharded, linearizable maps and sets |
-| `cache` | FIFO, LRU, MRU, LFU, SLRU, 2Q, ARC, Clock, and W-TinyLFU caches |
+A `maphash.Hasher[T]` used with `equiv` must satisfy:
 
-Caches additionally support expiry, loading, statistics, events, and admission policies.
+```text
+Equal(a, b) => Hash(a) == Hash(b)
+```
 
-### Probabilistic
+Data participating in a stored key’s identity must not be mutated in a way
+that changes its hash or equality semantics while the key is retained.
 
-Probabilistic structures reuse the same identity definition while providing structure-specific approximate guarantees.
+Stateful collections own independent random hash domains. Hash values are
+implementation details and must not be used as persistent identifiers.
 
-| Package | Purpose |
-| --- | --- |
-| `bloom` | Bloom filters |
-| `cuckoo` | Cuckoo filters |
-| `xorfilter` | XOR filters |
-| `sketch` | Count-Min Sketch and HyperLogLog |
+See [docs/key-semantics-contracts.md](docs/key-semantics-contracts.md) for the
+complete contract.
 
-Choose an exact structure when false positives or approximation are unacceptable.
+## Design
 
-Choose a probabilistic structure when bounded memory and approximate answers are the appropriate trade-off.
+`maphash.Hasher[T]` is the shared boundary between key identity and the
+algorithms that consume it.
 
-## Key semantics
+`equiv` does not introduce a separate equality interface, serialized key
+representation, or reflection-based fallback. Values remain `T`; each
+consumer adds only its own storage or algorithmic behavior.
 
-`equiv` follows a few important rules:
-
-* `maphash.Hasher[T]` is the sole semantic identity protocol.
-* Exact consumers use both `Hash` and `Equal`.
-* Collections retain the first equivalent key representation.
-* Collections own independent random hash domains.
-* Keys are not serialized or reflected over.
-* Data participating in a resident key’s semantic identity must not be mutated while the key is stored.
-* Stateful collections must be constructed with their `New` function; their zero value is invalid.
-
-For the normative contracts and design decisions, see:
-
-* [docs/key-semantics-contracts.md](docs/key-semantics-contracts.md)
-* [DESIGN.md](DESIGN.md)
-* [docs/adr/](docs/adr/)
-* [examples/](examples/)
-
-## Design principle
-
-The individual data structures are useful, but they are not the core abstraction of `equiv`.
-
-The core abstraction is the identity definition they share.
-
-Define identity once.
-Pass it to any compatible structure.
-Keep key semantics consistent across the application.
-
-That is what `equiv` is for.
+For implementation details and design rationale, see [DESIGN.md](DESIGN.md),
+the ADRs under [docs/](docs/), and runnable examples under [examples/](examples/).
