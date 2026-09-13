@@ -19,6 +19,13 @@ func BenchmarkCuckoo(b *testing.B) {
 		}
 	}
 	b.ReportAllocs()
+	falsePositives := 0
+	for i := 65536; i < 131072; i++ {
+		if f.Contains(i) {
+			falsePositives++
+		}
+	}
+	b.ReportMetric(float64(falsePositives)/65536, "false-positive-rate")
 	b.ResetTimer()
 	for i := 0; b.Loop(); i++ {
 		filterSink = f.Contains(i & 65535)
@@ -41,6 +48,13 @@ func BenchmarkXORFilter(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
+	falsePositives := 0
+	for i := 65536; i < 131072; i++ {
+		if f.Contains(i) {
+			falsePositives++
+		}
+	}
+	b.ReportMetric(float64(falsePositives)/65536, "false-positive-rate")
 	b.ResetTimer()
 	for i := 0; b.Loop(); i++ {
 		filterSink = f.Contains(i & 65535)

@@ -47,14 +47,22 @@ func BenchmarkSpecializedCacheBaseline(b *testing.B) {
 				}
 				b.ReportAllocs()
 				b.ResetTimer()
+				hits, misses := 0, 0
 				for i := 0; b.Loop(); i++ {
 					key := (i*17 + i/31) & 2047
 					if i%20 == 0 {
 						c.Set(key, i)
 					} else if value, ok := c.Get(key); ok {
+						hits++
 						cacheSink = value
+					} else {
+						misses++
 					}
 				}
+				if hits+misses > 0 {
+					b.ReportMetric(float64(hits)/float64(hits+misses), "hit-rate")
+				}
+				b.ReportMetric(float64(c.Len()), "resident-entries")
 				return
 			}
 
@@ -67,14 +75,22 @@ func BenchmarkSpecializedCacheBaseline(b *testing.B) {
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
+			hits, misses := 0, 0
 			for i := 0; b.Loop(); i++ {
 				key := (i*17 + i/31) & 2047
 				if i%20 == 0 {
 					c.Add(key, i)
 				} else if value, ok := c.Get(key); ok {
+					hits++
 					cacheSink = value
+				} else {
+					misses++
 				}
 			}
+			if hits+misses > 0 {
+				b.ReportMetric(float64(hits)/float64(hits+misses), "hit-rate")
+			}
+			b.ReportMetric(float64(c.Len()), "resident-entries")
 		})
 	}
 }

@@ -20,3 +20,9 @@ per-operation conversion or precomputed canonical keys.
 The concurrent package uses `RunParallel` specifically for its parallel
 workloads; the other new benchmarks use `B.Loop`. Probabilistic benchmarks
 cover Bloom, Cuckoo, and XOR filters.
+
+Category results include hit rate and resident-entry metrics for caches, and
+bits/key and measured false-positive rate for probabilistic filters. Throughput
+does not establish an overall ranking: concurrent snapshot/iteration semantics,
+cache policy and loader behavior, and probabilistic accuracy remain separate
+contract dimensions.
