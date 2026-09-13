@@ -26,7 +26,6 @@ func BenchmarkCacheWorkloads(b *testing.B) {
 			for i := range 1024 {
 				c.Set(i, i)
 			}
-			b.ReportMetric(float64(residentBytes()), "resident-bytes")
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; b.Loop(); i++ {
@@ -37,6 +36,7 @@ func BenchmarkCacheWorkloads(b *testing.B) {
 				}
 				cacheSink, _ = c.Get(key)
 			}
+			b.ReportMetric(float64(residentBytes()), "resident-bytes")
 		})
 	}
 }
@@ -58,6 +58,7 @@ func BenchmarkCacheZipf(b *testing.B) {
 				cacheSink, _ = c.Get(accesses[i%len(accesses)])
 			}
 			b.ReportMetric(float64(c.Len()), "resident-entries")
+			b.ReportMetric(float64(residentBytes()), "resident-bytes")
 		})
 	}
 }
@@ -74,7 +75,6 @@ func BenchmarkSpecializedCacheBaseline(b *testing.B) {
 				for i := range 1024 {
 					c.Set(i, i)
 				}
-				b.ReportMetric(float64(residentBytes()), "resident-bytes")
 				b.ReportAllocs()
 				b.ResetTimer()
 				hits, misses := 0, 0
@@ -93,6 +93,7 @@ func BenchmarkSpecializedCacheBaseline(b *testing.B) {
 					b.ReportMetric(float64(hits)/float64(hits+misses), "hit-rate")
 				}
 				b.ReportMetric(float64(c.Len()), "resident-entries")
+				b.ReportMetric(float64(residentBytes()), "resident-bytes")
 				return
 			}
 
@@ -103,7 +104,6 @@ func BenchmarkSpecializedCacheBaseline(b *testing.B) {
 			for i := range 1024 {
 				c.Add(i, i)
 			}
-			b.ReportMetric(float64(residentBytes()), "resident-bytes")
 			b.ReportAllocs()
 			b.ResetTimer()
 			hits, misses := 0, 0
@@ -122,6 +122,7 @@ func BenchmarkSpecializedCacheBaseline(b *testing.B) {
 				b.ReportMetric(float64(hits)/float64(hits+misses), "hit-rate")
 			}
 			b.ReportMetric(float64(c.Len()), "resident-entries")
+			b.ReportMetric(float64(residentBytes()), "resident-bytes")
 		})
 	}
 }
