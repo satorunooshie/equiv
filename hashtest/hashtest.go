@@ -60,8 +60,44 @@ func checkHasher[T any](h maphash.Hasher[T], values []T) []string {
 				}
 			}
 		}
+		// Exercise several finite call orders. A pure hasher must produce
+		// the same result for a value after each history. This is a
+		// diagnostic check over the supplied corpus, not a proof for all
+		// possible call histories.
+		sequences := [][]T{values, reverse(values), rotate(values)}
+		for _, sequence := range sequences {
+			for i, x := range values {
+				if !equality[i*len(values)+i] {
+					continue
+				}
+				for _, y := range sequence {
+					_ = hashValue(h, s, y)
+				}
+				if got := hashValue(h, s, x); got != hashValue(h, s, x) {
+					issues = append(issues, "hasher depends on call history")
+				}
+			}
+		}
 	}
 	return issues
+}
+
+func reverse[T any](values []T) []T {
+	result := make([]T, len(values))
+	for i, value := range values {
+		result[len(values)-1-i] = value
+	}
+	return result
+}
+
+func rotate[T any](values []T) []T {
+	if len(values) < 2 {
+		return append([]T(nil), values...)
+	}
+	result := make([]T, len(values))
+	copy(result, values[1:])
+	result[len(values)-1] = values[0]
+	return result
 }
 
 func hashValue[T any](h maphash.Hasher[T], seed maphash.Seed, value T) uint64 {
