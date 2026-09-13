@@ -1,7 +1,11 @@
 package cache_test
 
 import (
+	"context"
 	"hash/maphash"
+	"runtime"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hashicorp/golang-lru/v2"
@@ -92,6 +96,45 @@ func BenchmarkSpecializedCacheBaseline(b *testing.B) {
 			}
 			b.ReportMetric(float64(c.Len()), "resident-entries")
 		})
+	}
+}
+
+func BenchmarkLoaderDuplicateExecution(b *testing.B) {
+	c, err := cache.NewSync[int, int](maphash.ComparableHasher[int]{}, cache.Config[int, int]{MaxEntries: 1024})
+	if err != nil {
+		b.Fatal(err)
+	}
+	var totalCalls atomic.Int64
+	iterations := 0
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		c.Clear()
+		var calls atomic.Int64
+		release := make(chan struct{})
+		loader := func(context.Context, int) (int, error) {
+			calls.Add(1)
+			<-release
+			return 42, nil
+		}
+		var wg sync.WaitGroup
+		for range 8 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, _ = c.GetOrLoad(context.Background(), 1, loader)
+			}()
+		}
+		for calls.Load() == 0 {
+			runtime.Gosched()
+		}
+		close(release)
+		wg.Wait()
+		totalCalls.Add(calls.Load())
+		iterations++
+	}
+	if iterations > 0 {
+		b.ReportMetric(float64(totalCalls.Load())/float64(iterations), "loader-calls/op")
 	}
 }
 

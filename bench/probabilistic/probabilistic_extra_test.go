@@ -32,6 +32,26 @@ func BenchmarkCuckoo(b *testing.B) {
 	}
 }
 
+func BenchmarkCuckooDeleteInsert(b *testing.B) {
+	f, err := cuckoo.New[int](maphash.ComparableHasher[int]{}, cuckoo.Config{Capacity: 131072})
+	if err != nil {
+		b.Fatal(err)
+	}
+	for i := range 65536 {
+		if !f.Insert(i) {
+			b.Fatalf("insert %d failed", i)
+		}
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; b.Loop(); i++ {
+		key := i & 65535
+		if !f.Delete(key) || !f.Insert(key) {
+			b.Fatal("delete/insert failed")
+		}
+	}
+}
+
 func BenchmarkXORFilter(b *testing.B) {
 	values := make([]int, 65536)
 	for i := range values {
@@ -58,5 +78,26 @@ func BenchmarkXORFilter(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; b.Loop(); i++ {
 		filterSink = f.Contains(i & 65535)
+	}
+}
+
+func BenchmarkXORFilterBuild(b *testing.B) {
+	values := make([]int, 65536)
+	for i := range values {
+		values[i] = i
+	}
+	h := maphash.ComparableHasher[int]{}
+	b.ReportAllocs()
+	for b.Loop() {
+		_, err := xorfilter.New8[int](h, func(yield func(int) bool) {
+			for _, value := range values {
+				if !yield(value) {
+					return
+				}
+			}
+		})
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
