@@ -4,8 +4,6 @@ package hashtest
 import (
 	"fmt"
 	"hash/maphash"
-	"iter"
-	"math/rand"
 	"slices"
 	"testing"
 )
@@ -140,28 +138,4 @@ func checkEquivalence[T any](h maphash.Hasher[T], values []T) []string {
 		}
 	}
 	return issues
-}
-
-// Check verifies the strict equivalence laws in addition to the base Hasher
-// contract.
-func Check[T any](t testing.TB, h maphash.Hasher[T], values []T) {
-	t.Helper()
-	CheckEquivalence(t, h, values)
-}
-
-// CheckPairs applies Check to each supplied pair of values.
-func CheckPairs[T any](t testing.TB, h maphash.Hasher[T], pairs iter.Seq2[T, T]) {
-	for a, b := range pairs {
-		Check(t, h, []T{a, b})
-	}
-}
-
-// CheckFunc generates deterministic values and applies Check to them.
-func CheckFunc[T any](t testing.TB, h maphash.Hasher[T], gen func(*rand.Rand) T, n int) {
-	r := rand.New(rand.NewSource(1))
-	v := make([]T, n)
-	for i := range v {
-		v[i] = gen(r)
-	}
-	Check(t, h, v)
 }
