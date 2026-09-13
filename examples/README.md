@@ -49,5 +49,5 @@ The package-specific examples intentionally show the trade-off behind each
 constructor: exact collections preserve the answer, while filters and sketches
 answer quickly with bounded memory and may require a second source of truth.
 
-追加例の出力例（並行処理や probabilistic な構造では値が変わり得ます）は、各
-`main.go` のコメントと `go run` の出力を参照してください。
+For additional example output (values may vary for concurrent or probabilistic
+structures), see the comments in each `main.go` and the output from `go run`.
