@@ -11,9 +11,10 @@ func BenchmarkBloomAdd(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
 		f.Add(i % 10000)
+		i++
 	}
 }
 
@@ -26,9 +27,10 @@ func BenchmarkBloomContains(b *testing.B) {
 		f.Add(i)
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
 		f.Contains(i % 10000)
+		i++
 	}
 }
 
@@ -38,9 +40,10 @@ func BenchmarkCountingBloomAddRemove(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
 		f.Add(i % 10000)
 		f.Remove(i % 10000)
+		i++
 	}
 }

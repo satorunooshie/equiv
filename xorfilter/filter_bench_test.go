@@ -11,8 +11,9 @@ func BenchmarkXorContains(b *testing.B) {
 		v[i] = i
 	}
 	f, _ := New16(maphash.ComparableHasher[int]{}, sliceSeq(v))
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
 		f.Contains(i & 9999)
+		i++
 	}
 }

@@ -10,8 +10,9 @@ func BenchmarkCuckooContains(b *testing.B) {
 	for i := range 5000 {
 		f.Insert(i)
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
 		f.Contains(i & 4999)
+		i++
 	}
 }
