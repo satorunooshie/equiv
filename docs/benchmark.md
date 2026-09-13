@@ -41,7 +41,7 @@ OS:      darwin
 Arch:    arm64
 CPU:     Apple M4 Max
 Go:      1.27.1
-Commit:  210ddc1
+Revision: record the output of `git log --oneline -1` alongside benchmark data
 ```
 
 The release suite completed successfully. `internal/table` also reports probe,
