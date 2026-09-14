@@ -3,36 +3,30 @@ package cache
 import (
 	"hash/maphash"
 	"math"
-	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
-type fakeClock struct {
-	mu sync.Mutex
-	t  time.Time
-}
-
-func (f *fakeClock) Now() time.Time          { f.mu.Lock(); defer f.mu.Unlock(); return f.t }
-func (f *fakeClock) Advance(d time.Duration) { f.mu.Lock(); f.t = f.t.Add(d); f.mu.Unlock() }
-
 func TestPolicyAndExpiration(t *testing.T) {
-	c, e := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{Policy: LRU, MaxEntries: 2})
-	if e != nil {
-		t.Fatal(e)
-	}
-	c.Set(1, 1)
-	c.Set(2, 2)
-	c.Get(1)
-	c.Set(3, 3)
-	if c.Contains(2) {
-		t.Fatal("LRU did not evict least recently used entry")
-	}
-	c.SetTTL(4, 4, time.Millisecond)
-	time.Sleep(3 * time.Millisecond)
-	if c.Contains(4) {
-		t.Fatal("expired entry remained visible")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		c, e := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{Policy: LRU, MaxEntries: 2})
+		if e != nil {
+			t.Fatal(e)
+		}
+		c.Set(1, 1)
+		c.Set(2, 2)
+		c.Get(1)
+		c.Set(3, 3)
+		if c.Contains(2) {
+			t.Fatal("LRU did not evict least recently used entry")
+		}
+		c.SetTTL(4, 4, time.Millisecond)
+		time.Sleep(3 * time.Millisecond)
+		if c.Contains(4) {
+			t.Fatal("expired entry remained visible")
+		}
+	})
 }
 
 func TestInvalidConfig(t *testing.T) {
@@ -65,53 +59,53 @@ func TestObserverMayReenter(t *testing.T) {
 }
 
 func TestPerEntryTTISurvivesTouch(t *testing.T) {
-	c, e := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 2})
-	if e != nil {
-		t.Fatal(e)
-	}
-	c.SetExpiration(1, 1, 0, 30*time.Millisecond)
-	time.Sleep(5 * time.Millisecond)
-	if !c.Touch(1) {
-		t.Fatal("Touch failed")
-	}
-	time.Sleep(10 * time.Millisecond)
-	if !c.Contains(1) {
-		t.Fatal("Touch shortened per-entry TTI")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		c, e := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 2})
+		if e != nil {
+			t.Fatal(e)
+		}
+		c.SetExpiration(1, 1, 0, 30*time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
+		if !c.Touch(1) {
+			t.Fatal("Touch failed")
+		}
+		time.Sleep(10 * time.Millisecond)
+		if !c.Contains(1) {
+			t.Fatal("Touch shortened per-entry TTI")
+		}
+	})
 }
 
 func TestPeekDoesNotRefreshRecencyOrTTI(t *testing.T) {
-	c, err := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{
-		Policy: LRU, MaxEntries: 2,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.Set(1, 1)
-	c.Set(2, 2)
-	if _, ok := c.Peek(1); !ok {
-		t.Fatal("Peek missed resident entry")
-	}
-	c.Set(3, 3)
-	if c.Contains(1) || !c.Contains(2) {
-		t.Fatal("Peek changed LRU recency")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		c, err := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{Policy: LRU, MaxEntries: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Set(1, 1)
+		c.Set(2, 2)
+		if _, ok := c.Peek(1); !ok {
+			t.Fatal("Peek missed resident entry")
+		}
+		c.Set(3, 3)
+		if c.Contains(1) || !c.Contains(2) {
+			t.Fatal("Peek changed LRU recency")
+		}
 
-	f := &fakeClock{t: time.Unix(200, 0)}
-	tti, err := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 2})
-	if err != nil {
-		t.Fatal(err)
-	}
-	tti.clock = f
-	tti.SetExpiration(1, 1, 0, 10*time.Second)
-	f.Advance(9 * time.Second)
-	if _, ok := tti.Peek(1); !ok {
-		t.Fatal("Peek unexpectedly expired entry")
-	}
-	f.Advance(2 * time.Second)
-	if _, ok := tti.Peek(1); ok {
-		t.Fatal("Peek refreshed TTI")
-	}
+		ti, err := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ti.SetExpiration(1, 1, 0, 10*time.Second)
+		time.Sleep(9 * time.Second)
+		if _, ok := ti.Peek(1); !ok {
+			t.Fatal("Peek unexpectedly expired entry")
+		}
+		time.Sleep(2 * time.Second)
+		if _, ok := ti.Peek(1); ok {
+			t.Fatal("Peek refreshed TTI")
+		}
+	})
 }
 
 func TestSLRUHitProtectsEntry(t *testing.T) {
@@ -191,55 +185,55 @@ func TestWeigherRunsOutsideCacheLock(t *testing.T) {
 	}
 }
 
-func TestFakeClockExpirationIsDeterministic(t *testing.T) {
-	f := &fakeClock{t: time.Unix(100, 0)}
-	c, e := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 4})
-	if e != nil {
-		t.Fatal(e)
-	}
-	c.clock = f
-	c.SetTTL(1, 1, 10*time.Second)
-	f.Advance(9 * time.Second)
-	if !c.Contains(1) {
-		t.Fatal("entry expired too early")
-	}
-	f.Advance(2 * time.Second)
-	if c.Contains(1) {
-		t.Fatal("entry did not expire")
-	}
-	c.SetUntil(2, 2, f.t.Add(time.Hour))
-	f.Advance(2 * time.Hour)
-	if c.Contains(2) {
-		t.Fatal("absolute expiry failed")
-	}
+func TestExpirationIsDeterministic(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c, e := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 4})
+		if e != nil {
+			t.Fatal(e)
+		}
+		c.SetTTL(1, 1, 10*time.Second)
+		time.Sleep(9 * time.Second)
+		if !c.Contains(1) {
+			t.Fatal("entry expired too early")
+		}
+		time.Sleep(2 * time.Second)
+		if c.Contains(1) {
+			t.Fatal("entry did not expire")
+		}
+		c.SetUntil(2, 2, time.Now().Add(time.Hour))
+		time.Sleep(2 * time.Hour)
+		if c.Contains(2) {
+			t.Fatal("absolute expiry failed")
+		}
+	})
 }
 
 func TestPastAbsoluteExpirationIsImmediate(t *testing.T) {
-	f := &fakeClock{t: time.Unix(100, 0)}
-	c, e := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 4})
-	if e != nil {
-		t.Fatal(e)
-	}
-	c.clock = f
-	if !c.SetUntil(1, 1, f.t.Add(-time.Second)) {
-		t.Fatal("SetUntil rejected")
-	}
-	if _, ok := c.Get(1); ok {
-		t.Fatal("past deadline remained resident")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		c, e := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 4})
+		if e != nil {
+			t.Fatal(e)
+		}
+		if !c.SetUntil(1, 1, time.Now().Add(-time.Second)) {
+			t.Fatal("SetUntil rejected")
+		}
+		if _, ok := c.Get(1); ok {
+			t.Fatal("past deadline remained resident")
+		}
+	})
 }
 
 func TestNegativeTTLIsImmediate(t *testing.T) {
-	f := &fakeClock{t: time.Unix(100, 0)}
-	c, e := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 4})
-	if e != nil {
-		t.Fatal(e)
-	}
-	c.clock = f
-	c.SetTTL(1, 1, -time.Second)
-	if _, ok := c.Get(1); ok {
-		t.Fatal("negative TTL remained resident")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		c, e := New[int, int](maphash.ComparableHasher[int]{}, Config[int, int]{MaxEntries: 4})
+		if e != nil {
+			t.Fatal(e)
+		}
+		c.SetTTL(1, 1, -time.Second)
+		if _, ok := c.Get(1); ok {
+			t.Fatal("negative TTL remained resident")
+		}
+	})
 }
 
 func TestLFUAgesFrequencies(t *testing.T) {

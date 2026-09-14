@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/satorunooshie/equiv"
-	"github.com/satorunooshie/equiv/internal/clock"
 )
 
 // Policy selects the cache replacement policy.
@@ -106,7 +105,6 @@ type Cache[K, V any] struct {
 	freq      map[uint64]uint64
 	pending   []Event[K, V]
 	clockHand int
-	clock     clock.Clock
 	ghost1    map[uint64]struct{}
 	ghost2    map[uint64]struct{}
 	arcP      int
@@ -160,9 +158,8 @@ func New[K, V any](h maphash.Hasher[K], cfg Config[K, V]) (*Cache[K, V], error) 
 	if cfg.Shards != 0 {
 		return nil, errors.New("cache: Shards is only valid for NewSharded")
 	}
-	return &Cache[K, V]{h: h, seed: maphash.MakeSeed(), m: equiv.NewMap[K, item[K, V]](h), cfg: cfg, loads: map[uint64][]*load[K, V]{}, freq: map[uint64]uint64{}, ghost1: map[uint64]struct{}{}, ghost2: map[uint64]struct{}{}, twoQGhost: map[uint64]struct{}{}, clock: clock.Real{}}, nil
+	return &Cache[K, V]{h: h, seed: maphash.MakeSeed(), m: equiv.NewMap[K, item[K, V]](h), cfg: cfg, loads: map[uint64][]*load[K, V]{}, freq: map[uint64]uint64{}, ghost1: map[uint64]struct{}{}, ghost2: map[uint64]struct{}{}, twoQGhost: map[uint64]struct{}{}}, nil
 }
-func (c *Cache[K, V]) now() time.Time { return c.clock.Now() }
 func (c *Cache[K, V]) expired(x item[K, V], now time.Time) bool {
 	return (!x.expires.IsZero() && !now.Before(x.expires)) || (!x.timeToIdle.IsZero() && !now.Before(x.timeToIdle))
 }
@@ -268,7 +265,7 @@ func (c *Cache[K, V]) get(k K, peek bool) (V, bool) {
 		var z V
 		return z, false
 	}
-	now := c.now()
+	now := time.Now()
 	if c.expired(x, now) {
 		c.remove(k, EventExpire)
 		c.stats.Misses++
@@ -360,7 +357,7 @@ func (c *Cache[K, V]) SetExpiration(k K, v V, ttl, tti time.Duration) bool {
 
 // SetUntil inserts or updates v with an absolute expiration deadline.
 func (c *Cache[K, V]) SetUntil(k K, v V, t time.Time) bool {
-	return c.setWithWeightPreparation(k, v, t.Sub(c.now()), 0)
+	return c.setWithWeightPreparation(k, v, t.Sub(time.Now()), 0)
 }
 
 func (c *Cache[K, V]) set(k K, v V, ttl, tti time.Duration) bool {
@@ -398,7 +395,7 @@ func (c *Cache[K, V]) setLoaded(k K, v V) bool {
 	for {
 		c.mu.Lock()
 		if resident, exists := c.m.Get(k); exists {
-			if c.expired(resident, c.now()) {
+			if c.expired(resident, time.Now()) {
 				c.remove(k, EventExpire)
 			} else {
 				c.mu.Unlock()
@@ -410,7 +407,7 @@ func (c *Cache[K, V]) setLoaded(k K, v V) bool {
 		w := c.weight(k, v)
 		c.mu.Lock()
 		if resident, exists := c.m.Get(k); exists {
-			if c.expired(resident, c.now()) {
+			if c.expired(resident, time.Now()) {
 				c.remove(k, EventExpire)
 			} else {
 				c.mu.Unlock()
@@ -496,7 +493,7 @@ func (c *Cache[K, V]) setLockedWithWeight(k K, v V, ttl, tti time.Duration, w ui
 	if ok {
 		canonical = old.k
 	}
-	x := item[K, V]{k: canonical, v: v, weight: w, freq: 1, last: c.now()}
+	x := item[K, V]{k: canonical, v: v, weight: w, freq: 1, last: time.Now()}
 	if c.cfg.Policy == SLRU {
 		x.segment = 0
 	}
@@ -779,13 +776,13 @@ func (c *Cache[K, V]) Touch(k K) bool {
 		c.mu.Unlock()
 		return false
 	}
-	if c.expired(x, c.now()) {
+	if c.expired(x, time.Now()) {
 		c.remove(k, EventExpire)
 		c.mu.Unlock()
 		c.flush()
 		return false
 	}
-	now := c.now()
+	now := time.Now()
 	tti := x.timeToIdle.Sub(x.last)
 	x.last = now
 	if !x.timeToIdle.IsZero() {
@@ -822,7 +819,7 @@ func (c *Cache[K, V]) Clear() {
 func (c *Cache[K, V]) PruneExpired() int {
 	c.mu.Lock()
 	n := 0
-	now := c.now()
+	now := time.Now()
 	for _, k := range slices.Clone(c.items) {
 		if x, ok := c.m.Get(k); ok && c.expired(x, now) {
 			if c.remove(k, EventExpire) {
@@ -841,7 +838,7 @@ func (c *Cache[K, V]) All() iter.Seq2[K, V] {
 		c.mu.Lock()
 		a := make([]item[K, V], 0, len(c.items))
 		for _, k := range c.items {
-			if x, ok := c.m.Get(k); ok && !c.expired(x, c.now()) {
+			if x, ok := c.m.Get(k); ok && !c.expired(x, time.Now()) {
 				a = append(a, x)
 			}
 		}
@@ -947,7 +944,7 @@ func (c *Cache[K, V]) runLoad(ctx context.Context, cancel context.CancelFunc, k 
 	// loader was running. A resident equivalent value wins for the old
 	// generation's waiters, including when the loader itself returned an error.
 	if resident, ok := c.m.Get(k); ok {
-		if c.expired(resident, c.now()) {
+		if c.expired(resident, time.Now()) {
 			c.remove(k, EventExpire)
 		} else {
 			x.v = resident.v
